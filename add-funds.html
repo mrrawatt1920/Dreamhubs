@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DreamHubs | Add Funds</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body class="panel-body">
+    <div class="user-layout">
+      <aside class="user-sidebar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">DH</span>
+          <span>DreamHubs</span>
+        </a>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="new-order.html">New Order</a>
+          <a href="orders.html">Orders</a>
+          <a class="active" href="add-funds.html">Add Funds</a>
+          <a href="tickets.html">Tickets</a>
+          <a href="account.html">Account</a>
+        </nav>
+      </aside>
+      <main class="user-main">
+        <header class="user-topbar">
+          <div>
+            <p class="eyebrow">ADD FUNDS</p>
+            <h1>Keep balance ready for the next campaign.</h1>
+          </div>
+        </header>
+        <section class="dashboard-grid">
+          <article class="card wide">
+            <div class="section-title">
+              <h2>Deposit request</h2>
+              <span>Manual or gateway-based later</span>
+            </div>
+            <form class="order-form auth-grid" data-funds-form>
+              <label>
+                Amount
+                <input type="number" name="amount" placeholder="50" />
+              </label>
+              <label>
+                Payment method
+                <select name="method">
+                  <option>UPI</option>
+                  <option>Bank Transfer</option>
+                  <option>Crypto</option>
+                </select>
+              </label>
+              <label class="auth-span">
+                Transaction reference
+                <input type="text" name="reference" placeholder="Add UTR / reference ID" />
+              </label>
+              <button type="submit" class="primary-btn full auth-span">Submit Request</button>
+            </form>
+          </article>
+          <article class="card">
+            <div class="section-title">
+              <h2>Recent funds</h2>
+              <span>Wallet</span>
+            </div>
+            <ul class="stack-list" data-funds-list></ul>
+          </article>
+        </section>
+      </main>
+    </div>
+    <script src="assets/app.js"></script>
+    <script src="assets/backend.js"></script>
+  </body>
+</html>

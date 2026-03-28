@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DreamHubs | Tickets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body class="panel-body">
+    <div class="user-layout">
+      <aside class="user-sidebar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">DH</span>
+          <span>DreamHubs</span>
+        </a>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="new-order.html">New Order</a>
+          <a href="orders.html">Orders</a>
+          <a href="add-funds.html">Add Funds</a>
+          <a class="active" href="tickets.html">Tickets</a>
+          <a href="account.html">Account</a>
+        </nav>
+      </aside>
+      <main class="user-main">
+        <header class="user-topbar">
+          <div>
+            <p class="eyebrow">SUPPORT TICKETS</p>
+            <h1>Talk to support without leaving your panel.</h1>
+          </div>
+          <div class="topbar-tools">
+            <a class="primary-btn" href="#new-ticket">Open Ticket</a>
+          </div>
+        </header>
+        <section class="dashboard-grid">
+          <article class="card wide">
+            <div class="section-title">
+              <h2>New support ticket</h2>
+              <span id="new-ticket">Help center</span>
+            </div>
+            <form class="order-form auth-grid" data-ticket-form>
+              <label>
+                Subject
+                <input type="text" name="subject" placeholder="Order issue / payment issue / other" />
+              </label>
+              <label>
+                Related order
+                <input type="text" name="relatedOrder" placeholder="Optional order ID" />
+              </label>
+              <label class="auth-span">
+                Message
+                <input type="text" name="message" placeholder="Describe your issue clearly" />
+              </label>
+              <button type="submit" class="primary-btn full auth-span">Submit Ticket</button>
+            </form>
+          </article>
+          <article class="card">
+            <div class="section-title">
+              <h2>Ticket list</h2>
+              <span>Recent threads</span>
+            </div>
+            <ul class="stack-list" data-ticket-list></ul>
+          </article>
+        </section>
+      </main>
+    </div>
+    <script src="assets/app.js"></script>
+    <script src="assets/backend.js"></script>
+  </body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DreamHubs | New order</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body class="panel-body">
+    <div class="user-layout smm-layout">
+      <aside class="user-sidebar">
+        <a class="brand smm-brand" href="index.html">
+          <span class="brand-mark">D</span>
+          <span>DREAMHUBS.IN</span>
+        </a>
+        <a class="smm-subbrand" href="about.html">ABOUT US</a>
+        <nav class="sidebar-nav">
+          <a class="active" href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span class="menu-arrow">></span></a>
+          <a href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span class="menu-arrow">></span></a>
+          <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count">2</span></span><span class="menu-arrow">></span></a>
+          <a href="dashboard.html"><span class="menu-item"><span class="menu-icon green">V</span>Services</span><span class="menu-arrow">></span></a>
+          <a href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span class="menu-arrow">></span></a>
+          <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span class="menu-arrow">></span></a>
+          <a href="login.html" data-logout><span class="menu-item"><span class="menu-icon red">L</span>Logout</span></a>
+        </nav>
+      </aside>
+
+      <main class="user-main smm-main">
+        <div class="smm-container">
+          <section class="summary-strip">
+            <div class="summary-card">
+              <div class="summary-head">
+                <div class="summary-welcome">
+                  <small>Welcome,</small>
+                  <strong data-username>Your username</strong>
+                </div>
+                <div class="summary-actions">
+                  <span class="ghost-chip">Watch Demo</span>
+                  <span class="mini-chip">Recharge</span>
+                </div>
+              </div>
+              <div class="summary-metrics">
+                <div class="summary-mini">
+                  <span>Balance</span>
+                  <strong data-balance>Rs 0.00</strong>
+                </div>
+                <div class="summary-mini">
+                  <span>Your Orders</span>
+                  <strong data-order-count>0</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="smm-grid">
+            <div>
+              <div class="smm-card">
+                <div class="dual-tabs">
+                  <button class="active" type="button">New Order</button>
+                  <button type="button">Subscription</button>
+                </div>
+
+                <div class="filter-row">
+                  <span class="filter-chip"><span class="chip-dot">A</span>All</span>
+                  <span class="filter-chip red"><span class="chip-dot">I</span>Instagram Services</span>
+                  <span class="filter-chip"><span class="chip-dot">Y</span>YouTube Services</span>
+                  <span class="filter-chip blue"><span class="chip-dot">T</span>Telegram Services</span>
+                  <span class="filter-chip facebook"><span class="chip-dot">f</span>Facebook</span>
+                </div>
+
+                <input class="smm-search" type="text" placeholder="Search" />
+
+                <form data-order-form>
+                  <label class="label-lite">CATEGORY</label>
+                  <select class="smm-select" name="category">
+                    <option>Instagram - Trending Services</option>
+                  </select>
+
+                  <label class="label-lite">SERVICE</label>
+                  <select class="smm-select" name="service">
+                    <option>Instagram Reel Views - Used By Influencers</option>
+                  </select>
+
+                  <label class="label-lite">DESCRIPTION</label>
+                  <div class="info-panel">
+                    <div class="info-icons">
+                      <div>ST<strong>Start Time</strong>INSTANT</div>
+                      <div>SP<strong>Speed</strong>500K / HOUR</div>
+                      <div>RF<strong>Refill</strong>LIFETIME</div>
+                      <div>CN<strong>Cancel</strong>YES</div>
+                      <div>QL<strong>Quality</strong>REAL</div>
+                    </div>
+                    <div class="info-details">
+                      <strong>DETAILS:</strong>
+                      <ul>
+                        <li>Real Reel Views.</li>
+                        <li>Use reels link.</li>
+                        <li>Wrong links are non refundable.</li>
+                        <li>Private accounts not accepted.</li>
+                        <li>Start and speed can be slow sometimes.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <label class="label-lite">LINK</label>
+                  <input class="smm-field" type="text" name="target" placeholder="Paste your link" />
+
+                  <label class="label-lite">QUANTITY</label>
+                  <input class="smm-field" type="number" name="quantity" value="1000" min="100" />
+
+                  <label class="label-lite">DELIVERY TIME</label>
+                  <div class="time-box">6 minutes</div>
+
+                  <button type="submit" class="order-submit">
+                    <div>
+                      <small>TOTAL AMOUNT</small>
+                    </div>
+                    <strong>ORDER ></strong>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <aside>
+              <h2 class="recent-title">YOUR RECENT ORDERS</h2>
+              <div class="recent-list" data-recent-orders>
+                <article class="recent-order-card">
+                  <div class="recent-order-top">
+                    <div class="recent-order-id">
+                      <span class="doc-icon">ID</span>
+                      <span>No orders yet</span>
+                    </div>
+                    <span class="complete-pill">Empty</span>
+                  </div>
+                  <div class="recent-order-body">
+                    <div class="order-row"><span>Service:</span><span class="value">No service selected</span></div>
+                    <div class="order-row"><span>Link:</span><span class="value">No link submitted</span></div>
+                    <div class="order-row"><span>Price:</span><span class="value">0</span></div>
+                    <div class="order-row"><span>Quantity:</span><span class="value">0</span></div>
+                  </div>
+                  <div class="recent-date">Date: No order placed yet</div>
+                  <div class="metrics-bottom">
+                    <div class="metric-box"><span>START COUNT</span><strong>0</strong></div>
+                    <div class="metric-box"><span>REMAINS</span><strong>0</strong></div>
+                  </div>
+                </article>
+
+                <article class="recent-order-card">
+                  <div class="recent-order-top">
+                    <div class="recent-order-id">
+                      <span class="doc-icon">ID</span>
+                      <span>Place your first order</span>
+                    </div>
+                    <span class="complete-pill">Start</span>
+                  </div>
+                  <div class="recent-order-body">
+                    <div class="order-row"><span>Service:</span><span class="value">Waiting for first order</span></div>
+                    <div class="order-row"><span>Link:</span><span class="value">Add username or post link</span></div>
+                    <div class="order-row"><span>Price:</span><span class="value">0</span></div>
+                    <div class="order-row"><span>Quantity:</span><span class="value">0</span></div>
+                  </div>
+                  <div class="recent-date">Date: Dashboard is ready for new orders</div>
+                  <div class="metrics-bottom">
+                    <div class="metric-box"><span>START COUNT</span><strong>0</strong></div>
+                    <div class="metric-box"><span>REMAINS</span><strong>0</strong></div>
+                  </div>
+                </article>
+              </div>
+            </aside>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="assets/backend.js"></script>
+  </body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DreamHubs | Dashboard</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body class="panel-body">
+    <div class="user-layout smm-layout">
+      <aside class="user-sidebar">
+        <a class="brand smm-brand" href="index.html">
+          <span class="brand-mark">D</span>
+          <span>DREAMHUBS.IN</span>
+        </a>
+        <a class="smm-subbrand" href="about.html">ABOUT US</a>
+        <nav class="sidebar-nav">
+          <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span class="menu-arrow">></span></a>
+          <a href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span class="menu-arrow">></span></a>
+          <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count">2</span></span><span class="menu-arrow">></span></a>
+          <a class="active" href="dashboard.html"><span class="menu-item"><span class="menu-icon green">V</span>Services</span><span class="menu-arrow">></span></a>
+          <a href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span class="menu-arrow">></span></a>
+          <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span class="menu-arrow">></span></a>
+          <a href="login.html" data-logout><span class="menu-item"><span class="menu-icon red">L</span>Logout</span></a>
+        </nav>
+      </aside>
+
+      <main class="user-main smm-main">
+        <div class="smm-container">
+          <section class="summary-strip">
+            <div class="summary-card">
+              <div class="summary-head">
+                <div class="summary-welcome">
+                  <small>Welcome,</small>
+                  <strong data-username>Your username</strong>
+                </div>
+                <div class="summary-actions">
+                  <span class="ghost-chip">Watch Demo</span>
+                  <span class="mini-chip">Recharge</span>
+                </div>
+              </div>
+              <div class="summary-metrics">
+                <div class="summary-mini">
+                  <span>Balance</span>
+                  <strong data-balance>Rs 0.00</strong>
+                </div>
+                <div class="summary-mini">
+                  <span>Your Orders</span>
+                  <strong data-order-count>0</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="smm-grid">
+            <div class="smm-card">
+              <div class="dual-tabs">
+                <button type="button">New Order</button>
+                <button class="active" type="button">Subscription</button>
+              </div>
+              <div class="filter-row">
+                <span class="filter-chip"><span class="chip-dot">A</span>All</span>
+                <span class="filter-chip red"><span class="chip-dot">I</span>Instagram Services</span>
+                <span class="filter-chip"><span class="chip-dot">Y</span>YouTube Services</span>
+                <span class="filter-chip blue"><span class="chip-dot">T</span>Telegram Services</span>
+              </div>
+              <input class="smm-search" type="text" placeholder="Search services" />
+              <label class="label-lite">POPULAR CATEGORIES</label>
+              <div class="recent-list">
+                <article class="recent-order-card">
+                  <div class="recent-order-top">
+                    <div class="recent-order-id"><span class="doc-icon">IG</span><span>Instagram Services</span></div>
+                    <span class="complete-pill">Trending</span>
+                  </div>
+                  <div class="recent-order-body">
+                    <div class="order-row"><span>Best for:</span><span class="value">Influencer campaigns</span></div>
+                    <div class="order-row"><span>Includes:</span><span class="value">Likes, views, followers</span></div>
+                    <div class="order-row"><span>Status:</span><span class="value">Ready for mapping</span></div>
+                  </div>
+                </article>
+                <article class="recent-order-card">
+                  <div class="recent-order-top">
+                    <div class="recent-order-id"><span class="doc-icon">YT</span><span>YouTube Services</span></div>
+                    <span class="complete-pill">Hot</span>
+                  </div>
+                  <div class="recent-order-body">
+                    <div class="order-row"><span>Best for:</span><span class="value">Video launches</span></div>
+                    <div class="order-row"><span>Includes:</span><span class="value">Views, likes, subscribers</span></div>
+                    <div class="order-row"><span>Status:</span><span class="value">Frontend demo ready</span></div>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <aside>
+              <h2 class="recent-title">RECENT PANEL ACTIVITY</h2>
+              <div class="recent-list">
+                <article class="recent-order-card">
+                  <div class="recent-order-top">
+                    <div class="recent-order-id"><span class="doc-icon">RF</span><span>Latest Recharge</span></div>
+                    <span class="complete-pill">Approved</span>
+                  </div>
+                  <div class="recent-order-body">
+                    <div class="order-row"><span>Method:</span><span class="value">UPI</span></div>
+                    <div class="order-row"><span>Amount:</span><span class="value">Rs 500</span></div>
+                    <div class="order-row"><span>Date:</span><span class="value">27 Mar 2026</span></div>
+                  </div>
+                </article>
+                <article class="recent-order-card">
+                  <div class="recent-order-top">
+                    <div class="recent-order-id"><span class="doc-icon">SP</span><span>Open Support</span></div>
+                    <span class="complete-pill">2 Replies</span>
+                  </div>
+                  <div class="recent-order-body">
+                    <div class="order-row"><span>Ticket:</span><span class="value">Order Delay</span></div>
+                    <div class="order-row"><span>Update:</span><span class="value">Admin replied recently</span></div>
+                    <div class="order-row"><span>Action:</span><span class="value">View Support Page</span></div>
+                  </div>
+                </article>
+              </div>
+            </aside>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="assets/backend.js"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "dreamhubs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DreamHubs SMM panel with zero-dependency Node backend",
+  "scripts": {
+    "start": "node server.js",
+    "start:prod": "node server.js"
+  },
+  "dependencies": {
+    "nodemailer": "^8.0.4"
+  }
+}

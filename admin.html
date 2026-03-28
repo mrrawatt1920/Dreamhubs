@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DreamHubs Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body class="admin-body">
+    <div class="admin-gate" data-admin-gate>
+      <div class="admin-gate-card">
+        <p class="eyebrow">ADMIN LOGIN</p>
+        <h1>DreamHubs control access</h1>
+        <p class="hero-text">
+          Admin panel tabhi open hoga jab valid username aur password se login hoga.
+        </p>
+        <form class="order-form" data-admin-login-form>
+          <label>
+            Admin username
+            <input type="text" name="identifier" placeholder="Enter admin username" />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" placeholder="Enter admin password" />
+          </label>
+          <button class="primary-btn full" type="submit">Secure Login</button>
+        </form>
+        <p class="auth-note" data-admin-status aria-live="polite"></p>
+      </div>
+    </div>
+
+    <div class="admin-layout" data-admin-panel hidden>
+      <aside class="sidebar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">DH</span>
+          <span>DreamHubs</span>
+        </a>
+        <nav class="sidebar-nav">
+          <a class="active" href="#dashboard">Dashboard</a>
+          <a href="#orders">Orders</a>
+          <a href="#users">Users</a>
+          <a href="#tickets">Tickets</a>
+          <a href="#services">Services</a>
+          <a href="#apis">API Providers</a>
+          <a href="#appearance">Appearance</a>
+        </nav>
+      </aside>
+
+      <main class="admin-main">
+        <header class="admin-top">
+          <div>
+            <p class="eyebrow">ADMIN PANEL</p>
+            <h1>Operations control center</h1>
+          </div>
+          <div class="admin-login-box">
+            <p class="auth-note info">Logged in admin can control users, orders, tickets, services and funds from here.</p>
+          </div>
+        </header>
+
+        <section class="admin-stats" id="dashboard">
+          <article class="card stat-card">
+            <span>Total users</span>
+            <strong data-admin-users>0</strong>
+            <small>Registered users</small>
+          </article>
+          <article class="card stat-card">
+            <span>Active orders</span>
+            <strong data-admin-orders>0</strong>
+            <small>Total orders</small>
+          </article>
+          <article class="card stat-card">
+            <span>Open tickets</span>
+            <strong data-admin-tickets>0</strong>
+            <small>Open support tickets</small>
+          </article>
+          <article class="card stat-card">
+            <span>Pending funds</span>
+            <strong data-admin-funds>0</strong>
+            <small>Fund requests</small>
+          </article>
+        </section>
+
+        <section class="admin-grid">
+          <article class="card wide" id="orders">
+            <div class="section-title">
+              <h2>Recent orders</h2>
+              <span class="status-pill">Live sync</span>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>User</th>
+                  <th>Service</th>
+                  <th>Status</th>
+                  <th>Provider</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>#DH1024</td>
+                  <td>@creatorzone</td>
+                  <td>IG Reel Views</td>
+                  <td>Processing</td>
+                  <td>Provider A</td>
+                </tr>
+                <tr>
+                  <td>#DH1025</td>
+                  <td>@styleverse</td>
+                  <td>IG Followers</td>
+                  <td>Completed</td>
+                  <td>Provider B</td>
+                </tr>
+                <tr>
+                  <td>#DH1026</td>
+                  <td>@musicdrop</td>
+                  <td>YT Likes</td>
+                  <td>Partial</td>
+                  <td>Provider A</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="auth-note" data-admin-orders-empty>Login to load recent orders.</p>
+          </article>
+
+          <article class="card" id="tickets">
+            <div class="section-title">
+              <h2>Support tickets</h2>
+              <span>Reply queue</span>
+            </div>
+            <ul class="stack-list" data-admin-ticket-list>
+              <li data-admin-ticket-placeholder>
+                <strong>No data loaded</strong>
+                <span>Login to view support tickets.</span>
+              </li>
+            </ul>
+          </article>
+
+          <article class="card" id="users">
+            <div class="section-title">
+              <h2>Users</h2>
+              <span>Accounts</span>
+            </div>
+            <ul class="stack-list" data-admin-user-list>
+              <li>
+                <strong>No data loaded</strong>
+                <span>Login to view registered users.</span>
+              </li>
+            </ul>
+          </article>
+
+          <article class="card" id="services">
+            <div class="section-title">
+              <h2>Service controls</h2>
+              <span>Catalog</span>
+            </div>
+            <ul class="stack-list">
+              <li>
+                <strong>Add / remove services</strong>
+                <span>Show only active campaigns on the frontend</span>
+              </li>
+              <li>
+                <strong>Provider mapping</strong>
+                <span>Link local service IDs with external API service IDs</span>
+              </li>
+              <li>
+                <strong>Pricing rules</strong>
+                <span>Adjust rates, min-max quantities, and refill settings</span>
+              </li>
+            </ul>
+          </article>
+
+          <article class="card" id="apis">
+            <div class="section-title">
+              <h2>Fund requests</h2>
+              <span>Payments</span>
+            </div>
+            <ul class="stack-list" data-admin-fund-list>
+              <li>
+                <strong>No data loaded</strong>
+                <span>Login to view fund requests.</span>
+              </li>
+            </ul>
+          </article>
+
+          <article class="card" id="appearance">
+            <div class="section-title">
+              <h2>Appearance</h2>
+              <span>Branding</span>
+            </div>
+            <ul class="stack-list">
+              <li>
+                <strong>Seasonal themes</strong>
+                <span>Change banners, gradients, and homepage cards for events</span>
+              </li>
+              <li>
+                <strong>User theme preference</strong>
+                <span>Support light, dark, and automatic device-based mode</span>
+              </li>
+            </ul>
+          </article>
+        </section>
+      </main>
+    </div>
+    <script src="assets/app.js"></script>
+    <script src="assets/backend.js"></script>
+  </body>
+</html>
