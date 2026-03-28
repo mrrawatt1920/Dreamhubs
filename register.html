@@ -38,25 +38,26 @@
           <form class="order-form auth-grid" data-register-form>
             <label>
               Full name
-              <input type="text" name="name" placeholder="Your name" />
+              <input type="text" name="name" placeholder="Your name" required />
             </label>
             <label>
               Username
-              <input type="text" name="username" placeholder="Choose username" />
+              <input type="text" name="username" placeholder="Choose username" required />
             </label>
             <label>
               Email
-              <input type="email" name="email" placeholder="Enter email" />
+              <input type="email" name="email" placeholder="Enter email" required />
             </label>
             <label>
               Password
-              <input type="password" name="password" placeholder="Create password" />
+              <input type="password" name="password" placeholder="Create password" required />
             </label>
             <label>
               Confirm password
-              <input type="password" name="confirmPassword" placeholder="Confirm password" />
+              <input type="password" name="confirmPassword" placeholder="Confirm password" required />
             </label>
             <button type="submit" class="primary-btn full auth-span">Create Account</button>
+            <p class="auth-note auth-span" data-register-status aria-live="polite"></p>
           </form>
           <div class="auth-meta">
             <span>Already have an account?</span>

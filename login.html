@@ -43,13 +43,14 @@
             </div>
             <label>
               Email or username
-              <input type="text" name="emailOrUsername" placeholder="Enter your email or username" />
+              <input type="text" name="emailOrUsername" placeholder="Enter your email or username" required />
             </label>
             <label>
               Password
-              <input type="password" name="password" placeholder="Enter your password" />
+              <input type="password" name="password" placeholder="Enter your password" required />
             </label>
             <button type="submit" class="primary-btn full">Login</button>
+            <p class="auth-note" data-login-status aria-live="polite"></p>
           </form>
           <div class="auth-meta">
             <button type="button" class="auth-link-btn" data-forgot-toggle>Forgot password?</button>
