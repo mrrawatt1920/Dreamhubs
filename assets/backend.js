@@ -1,4 +1,4 @@
-onst API = {
+const API = {
   tokenKey: "dreamhubs-token",
   userKey: "dreamhubs-user",
   adminTokenKey: "dreamhubs-admin-token",
@@ -112,6 +112,7 @@ function formatDate(value) {
 
 async function handleRegisterPage() {
   const form = document.querySelector("[data-register-form]");
+  const status = document.querySelector("[data-register-status]");
   if (!form) {
     return;
   }
@@ -128,9 +129,13 @@ async function handleRegisterPage() {
 
     const confirmPassword = form.querySelector("[name='confirmPassword']").value;
     if (payload.password !== confirmPassword) {
-      alert("Passwords do not match.");
+      setStatus(status, "Passwords do not match.", "error");
       return;
     }
+
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    setStatus(status, "Creating your account...", "info");
 
     try {
       const data = await API.request("/api/auth/register", {
@@ -138,15 +143,19 @@ async function handleRegisterPage() {
         body: JSON.stringify(payload)
       });
       API.setSession(data);
+      setStatus(status, "Account created. Redirecting...", "success");
       window.location.href = "new-order.html";
     } catch (error) {
-      alert(error.message);
+      setStatus(status, error.message, "error");
+    } finally {
+      submitButton.disabled = false;
     }
   });
 }
 
 async function handleLoginPage() {
   const loginForm = document.querySelector("[data-login-form]");
+  const loginStatus = document.querySelector("[data-login-status]");
   const googleButton = document.querySelector("[data-google-login]");
   const forgotToggle = document.querySelector("[data-forgot-toggle]");
   const forgotForm = document.querySelector("[data-forgot-form]");
@@ -178,6 +187,9 @@ async function handleLoginPage() {
   if (loginForm) {
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const submitButton = loginForm.querySelector("button[type='submit']");
+      submitButton.disabled = true;
+      setStatus(loginStatus, "Signing you in...", "info");
       try {
         const data = await API.request("/api/auth/login", {
           method: "POST",
@@ -187,9 +199,12 @@ async function handleLoginPage() {
           })
         });
         API.setSession(data);
+        setStatus(loginStatus, "Login successful. Redirecting...", "success");
         window.location.href = "new-order.html";
       } catch (error) {
-        alert(error.message);
+        setStatus(loginStatus, error.message, "error");
+      } finally {
+        submitButton.disabled = false;
       }
     });
   }
