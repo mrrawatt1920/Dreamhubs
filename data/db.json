@@ -1,0 +1,34 @@
+{
+  "users": [],
+  "sessions": [],
+  "adminSessions": [
+    {
+      "token": "4b94d54adc727ec3fee280b435998c97f1d756e965aecc03",
+      "createdAt": "2026-03-28T03:31:08.421Z"
+    },
+    {
+      "token": "210fe68f642dbab00af7a3d61f26b2db53095177c543ff43",
+      "createdAt": "2026-03-28T03:36:49.896Z"
+    }
+  ],
+  "orders": [],
+  "tickets": [],
+  "fundRequests": [],
+  "passwordResetTokens": [],
+  "loginFailures": [],
+  "resetRequests": [],
+  "services": [
+    {
+      "id": "svc_instagram_reel_views",
+      "category": "Instagram - Trending Services",
+      "name": "Instagram Reel Views - Used By Influencers",
+      "ratePer1000": 0.42,
+      "min": 100,
+      "max": 2147483647,
+      "speed": "500K / HOUR",
+      "refill": "LIFETIME",
+      "cancel": "YES",
+      "quality": "REAL"
+    }
+  ]
+}
