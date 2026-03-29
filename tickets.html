@@ -11,6 +11,12 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="assets/styles.css" />
+  
+    <script>
+      if (!localStorage.getItem("dreamhubs-token")) {
+        window.location.replace("login.html");
+      }
+    </script>
   </head>
   <body class="panel-body">
     <div class="user-layout">
