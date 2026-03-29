@@ -78,41 +78,33 @@
 
                 <form data-order-form>
                   <label class="label-lite">CATEGORY</label>
-                  <select class="smm-select" name="category">
-                    <option>Instagram - Trending Services</option>
+                  <select class="smm-select" name="category" data-order-category required>
+                    <option value="">Loading categories...</option>
                   </select>
 
                   <label class="label-lite">SERVICE</label>
-                  <select class="smm-select" name="service">
-                    <option>Instagram Reel Views - Used By Influencers</option>
+                  <select class="smm-select" name="service" data-order-service required>
+                    <option value="">Select a category first</option>
                   </select>
 
                   <label class="label-lite">DESCRIPTION</label>
                   <div class="info-panel">
                     <div class="info-icons">
-                      <div>ST<strong>Start Time</strong>INSTANT</div>
-                      <div>SP<strong>Speed</strong>500K / HOUR</div>
-                      <div>RF<strong>Refill</strong>LIFETIME</div>
-                      <div>CN<strong>Cancel</strong>YES</div>
-                      <div>QL<strong>Quality</strong>REAL</div>
+                      <div>MN<strong data-order-min label>Min</strong><span data-order-min>...</span></div>
+                      <div>MX<strong data-order-max label>Max</strong><span data-order-max>...</span></div>
+                      <div>RT<strong data-order-rate label>Rate / 1000</strong><span data-order-rate>...</span></div>
                     </div>
-                    <div class="info-details">
+                    <div class="info-details" data-order-desc style="white-space: pre-wrap;">
                       <strong>DETAILS:</strong>
-                      <ul>
-                        <li>Real Reel Views.</li>
-                        <li>Use reels link.</li>
-                        <li>Wrong links are non refundable.</li>
-                        <li>Private accounts not accepted.</li>
-                        <li>Start and speed can be slow sometimes.</li>
-                      </ul>
+                      <span>Select a service to view details.</span>
                     </div>
                   </div>
 
                   <label class="label-lite">LINK</label>
-                  <input class="smm-field" type="text" name="target" placeholder="Paste your link" />
+                  <input class="smm-field" type="text" name="target" placeholder="Paste your link" required />
 
                   <label class="label-lite">QUANTITY</label>
-                  <input class="smm-field" type="number" name="quantity" value="1000" min="100" />
+                  <input class="smm-field" type="number" name="quantity" value="1000" min="1" required />
 
                   <label class="label-lite">DELIVERY TIME</label>
                   <div class="time-box">6 minutes</div>

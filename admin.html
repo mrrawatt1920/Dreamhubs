@@ -47,6 +47,7 @@
           <a href="#users">Users</a>
           <a href="#tickets">Tickets</a>
           <a href="#services">Services</a>
+          <a href="#funds">Fund Requests</a>
           <a href="#apis">API Providers</a>
           <a href="#appearance">Appearance</a>
         </nav>
@@ -176,7 +177,7 @@
             </ul>
           </article>
 
-          <article class="card" id="apis">
+          <article class="card" id="funds">
             <div class="section-title">
               <h2>Fund requests</h2>
               <span>Payments</span>
@@ -187,6 +188,23 @@
                 <span>Login to view fund requests.</span>
               </li>
             </ul>
+          </article>
+
+          <article class="card" id="apis">
+            <div class="section-title">
+              <h2>Master Provider API</h2>
+              <span>Sync Settings</span>
+            </div>
+            <form class="order-form" data-admin-provider-form style="margin-top: 1rem;">
+              <label>API URL <input type="url" name="url" placeholder="https://provider.com/api/v2" required /></label>
+              <label>API Key <input type="password" name="key" placeholder="Enter API Key" required /></label>
+              <label>Profit Margin (%) <input type="number" name="margin" value="10" min="0" max="1000" required /></label>
+              <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button type="submit" class="primary-btn">Save Settings</button>
+                <button type="button" class="primary-btn" style="background: var(--blue);" data-admin-provider-sync>Sync Services</button>
+              </div>
+            </form>
+            <p class="auth-note" data-admin-provider-status aria-live="polite" style="margin-top: 10px;"></p>
           </article>
 
           <article class="card" id="appearance">

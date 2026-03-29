@@ -119,7 +119,8 @@ function createInitialDb() {
         cancel: "YES",
         quality: "REAL"
       }
-    ]
+    ],
+    provider: { url: "", key: "", margin: 10 }
   };
 }
 
@@ -140,7 +141,8 @@ function normalizeDb(db) {
     passwordResetTokens: Array.isArray(db.passwordResetTokens) ? db.passwordResetTokens : [],
     loginFailures: Array.isArray(db.loginFailures) ? db.loginFailures : [],
     resetRequests: Array.isArray(db.resetRequests) ? db.resetRequests : [],
-    services: Array.isArray(db.services) ? db.services : []
+    services: Array.isArray(db.services) ? db.services : [],
+    provider: db.provider && typeof db.provider === "object" ? db.provider : { url: "", key: "", margin: 10 }
   };
 }
 
@@ -789,6 +791,56 @@ async function handleApi(req, res, url) {
       fundRequests: auth.db.fundRequests,
       services: auth.db.services
     });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/provider") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    return send(res, 200, { provider: auth.db.provider });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/provider") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    auth.db.provider.url = String(body.url || "").trim();
+    auth.db.provider.key = String(body.key || "").trim();
+    auth.db.provider.margin = Number(body.margin || 10);
+    await writeDb(auth.db);
+    return send(res, 200, { message: "Provider settings saved." });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/provider/sync") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const { url: api, key, margin } = auth.db.provider;
+    if (!api || !key) return send(res, 400, { error: "Please save API URL and Key first." });
+    
+    try {
+      const fetchUrl = `${api}?key=${key}&action=services`;
+      const response = await fetch(fetchUrl);
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error(data.error || "Invalid response from provider.");
+      }
+      auth.db.services = data.map(service => {
+        const originalRate = Number(service.rate || 0);
+        const augmentedRate = Number((originalRate + (originalRate * (margin / 100))).toFixed(4));
+        return {
+          id: String(service.service),
+          category: String(service.category),
+          name: String(service.name),
+          ratePer1000: augmentedRate,
+          min: Number(service.min || 1),
+          max: Number(service.max || 1000),
+          desc: String(service.desc || "")
+        };
+      });
+      await writeDb(auth.db);
+      return send(res, 200, { message: `Successfully synced ${auth.db.services.length} services!` });
+    } catch (e) {
+      return send(res, 500, { error: "Failed to sync: " + e.message });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/admin/logout") {
