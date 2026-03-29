@@ -4,6 +4,7 @@ const fsp = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
+const { MongoClient } = require("mongodb");
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
@@ -47,6 +48,8 @@ const MIME_TYPES = {
 
 const mailTransport = createMailTransport();
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+let mongoClient = null;
+let dbCollection = null;
 
 function loadEnvFile() {
   try {
@@ -73,13 +76,22 @@ function loadEnvFile() {
 }
 
 async function ensureDb() {
-  await fsp.mkdir(DATA_DIR, { recursive: true });
+  const uri = String(process.env.MONGODB_URI || "");
+  if (!uri) throw new Error("Missing MONGODB_URI in environment variables.");
 
-  try {
-    await fsp.access(DB_FILE);
-  } catch {
+  if (!mongoClient) {
+    mongoClient = new MongoClient(uri);
+    await mongoClient.connect();
+    const database = mongoClient.db();
+    dbCollection = database.collection("dreamhubs_data");
+  }
+
+  const exist = await dbCollection.findOne({ _id: "main_store" });
+  if (!exist) {
     const initial = createInitialDb();
-    await fsp.writeFile(DB_FILE, JSON.stringify(initial, null, 2));
+    await dbCollection.insertOne({ _id: "main_store", data: initial });
+  } else if (!exist.data) {
+    await dbCollection.replaceOne({ _id: "main_store" }, { _id: "main_store", data: createInitialDb() });
   }
 }
 
@@ -112,8 +124,8 @@ function createInitialDb() {
 }
 
 async function readDb() {
-  const raw = await fsp.readFile(DB_FILE, "utf8");
-  const parsed = JSON.parse(raw);
+  const doc = await dbCollection.findOne({ _id: "main_store" });
+  const parsed = doc && doc.data ? doc.data : createInitialDb();
   return normalizeDb(parsed);
 }
 
@@ -133,7 +145,11 @@ function normalizeDb(db) {
 }
 
 async function writeDb(data) {
-  await fsp.writeFile(DB_FILE, JSON.stringify(normalizeDb(data), null, 2));
+  await dbCollection.replaceOne(
+    { _id: "main_store" },
+    { _id: "main_store", data: normalizeDb(data) },
+    { upsert: true }
+  );
 }
 
 function send(res, status, payload, headers = {}) {
