@@ -311,12 +311,14 @@ async function handleAdminPage() {
   async function loadDashboard() {
     try {
       const data = await API.request("/api/admin/dashboard", { admin: true });
-      setStatus(status, `Logged in as ${data.admin.username}`, "success");
+      setStatus(status, `Logged in as ${data.admin.username || data.admin.email}`, "success");
       if (gate) {
         gate.hidden = true;
+        gate.style.display = "none";
       }
       if (panel) {
         panel.hidden = false;
+        panel.style.display = "";
       }
       setText("[data-admin-users]", String(data.stats.users));
       setText("[data-admin-orders]", String(data.stats.orders));
@@ -412,9 +414,11 @@ async function handleAdminPage() {
       setStatus(status, "Admin login required.", "info");
       if (gate) {
         gate.hidden = false;
+        gate.style.display = "";
       }
       if (panel) {
         panel.hidden = true;
+        panel.style.display = "none";
       }
     }
   }
