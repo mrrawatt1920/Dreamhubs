@@ -8,6 +8,7 @@
     "start:prod": "node server.js"
   },
   "dependencies": {
+    "google-auth-library": "^10.6.2",
     "nodemailer": "^8.0.4"
   }
 }
