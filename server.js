@@ -1,6 +1,6 @@
 const http = require("http");
 const fs = require("fs");
-const fsp = require("fs/promise");
+const fsp = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
