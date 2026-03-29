@@ -96,6 +96,18 @@ function setStatus(element, message, tone = "") {
   }
 }
 
+async function waitForGoogleIdentity(maxAttempts = 20, delayMs = 300) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (window.google?.accounts?.id) {
+      return true;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+  }
+
+  return false;
+}
+
 function formatDate(value) {
   if (!value) {
     return "Not available";
@@ -164,7 +176,8 @@ async function handleLoginPage() {
 
   if (googleMount) {
     const clientId = document.body.dataset.googleClientId || "";
-    if (!window.google?.accounts?.id || !clientId) {
+    const googleReady = await waitForGoogleIdentity();
+    if (!googleReady || !clientId) {
       setStatus(googleStatus, "Google login is not configured yet.", "error");
     } else {
       window.google.accounts.id.initialize({
