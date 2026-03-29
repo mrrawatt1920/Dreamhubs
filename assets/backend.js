@@ -438,6 +438,21 @@ async function handleAdminPage() {
           `).join("");
         }
       }
+      const serviceList = document.querySelector("[data-admin-services-list]");
+      if (serviceList && data.services) {
+        serviceList.innerHTML = data.services.map(s => `
+          <tr>
+            <td>${escapeHtml(s.id)}</td>
+            <td style="font-size: 0.8rem;">${escapeHtml(s.category)}</td>
+            <td>${escapeHtml(s.name)}</td>
+            <td>₹${Number(s.ratePer1000).toFixed(4)}</td>
+            <td>
+              <button class="primary-btn mini" onclick="editService('${escapeHtml(s.id)}', '${escapeHtml(s.name.replace(/'/g, "\\'"))}', ${s.ratePer1000})">Edit</button>
+            </td>
+          </tr>
+        `).join("");
+      }
+
     } catch (error) {
       API.clearAdminSession();
       setStatus(status, "Admin login required.", "info");
@@ -920,6 +935,30 @@ function handleLogout() {
     });
   });
 }
+
+window.editService = async function(id, currentName, currentRate) {
+  const newName = prompt("Enter new service name:", currentName);
+  if (newName === null) return;
+  
+  const newRate = prompt("Enter new rate per 1000 (₹):", currentRate);
+  if (newRate === null) return;
+
+  try {
+    const res = await API.request("/api/admin/services", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({
+        id,
+        name: newName,
+        ratePer1000: Number(newRate)
+      })
+    });
+    alert(res.message);
+    location.reload(); // Refresh to show changes
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
 
 document.addEventListener("DOMContentLoaded", async () => {
   await handleRegisterPage();
