@@ -22,12 +22,12 @@
         </p>
         <form class="order-form" data-admin-login-form>
           <label>
-            Admin username
-            <input type="text" name="identifier" placeholder="Enter admin username" />
+            Admin username or email
+            <input type="text" name="identifier" placeholder="Enter admin username or email" required />
           </label>
           <label>
             Password
-            <input type="password" name="password" placeholder="Enter admin password" />
+            <input type="password" name="password" placeholder="Enter admin password" required />
           </label>
           <button class="primary-btn full" type="submit">Secure Login</button>
         </form>
@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <div class="admin-layout" data-admin-panel hidden>
+    <div class="admin-layout" data-admin-panel hidden style="display: none;">
       <aside class="sidebar">
         <a class="brand" href="index.html">
           <span class="brand-mark">DH</span>
