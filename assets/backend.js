@@ -156,32 +156,48 @@ async function handleRegisterPage() {
 async function handleLoginPage() {
   const loginForm = document.querySelector("[data-login-form]");
   const loginStatus = document.querySelector("[data-login-status]");
-  const googleButton = document.querySelector("[data-google-login]");
+  const googleMount = document.querySelector("[data-google-signin]");
+  const googleStatus = document.querySelector("[data-google-status]");
   const forgotToggle = document.querySelector("[data-forgot-toggle]");
   const forgotForm = document.querySelector("[data-forgot-form]");
   const forgotMessage = document.querySelector("[data-forgot-message]");
 
-  if (googleButton) {
-    googleButton.addEventListener("click", async () => {
-      const email = prompt("Enter Google email for demo login:");
-      if (!email) {
-        return;
-      }
+  if (googleMount) {
+    const clientId = document.body.dataset.googleClientId || "";
+    if (!window.google?.accounts?.id || !clientId) {
+      setStatus(googleStatus, "Google login is not configured yet.", "error");
+    } else {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          setStatus(googleStatus, "Signing in with Google...", "info");
+          try {
+            const data = await API.request("/api/auth/google", {
+              method: "POST",
+              body: JSON.stringify({
+                credential: response.credential
+              })
+            });
+            API.setSession(data);
+            setStatus(googleStatus, "Google login successful. Redirecting...", "success");
+            window.location.href = "new-order.html";
+          } catch (error) {
+            setStatus(googleStatus, error.message, "error");
+          }
+        },
+        ux_mode: "popup",
+        auto_select: false
+      });
 
-      try {
-        const data = await API.request("/api/auth/google", {
-          method: "POST",
-          body: JSON.stringify({
-            email,
-            name: email.split("@")[0]
-          })
-        });
-        API.setSession(data);
-        window.location.href = "new-order.html";
-      } catch (error) {
-        alert(error.message);
-      }
-    });
+      window.google.accounts.id.renderButton(googleMount, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        text: "continue_with",
+        width: 320
+      });
+      setStatus(googleStatus, "Use the Google popup to continue.", "info");
+    }
   }
 
   if (loginForm) {
