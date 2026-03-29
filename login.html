@@ -11,8 +11,9 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="assets/styles.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
-  <body>
+  <body data-google-client-id="184790123400-pbah8rr03a6csnea4m9m4gsae7vt9bkq.apps.googleusercontent.com">
     <div class="auth-shell">
       <section class="auth-visual">
         <a class="brand" href="index.html">
@@ -35,11 +36,14 @@
         <div class="auth-box">
           <p class="eyebrow">LOGIN</p>
           <h2>Access your DreamHubs panel</h2>
+          <div class="order-form">
+            <div data-google-signin></div>
+            <p class="auth-note" data-google-status aria-live="polite"></p>
+          </div>
           <form class="order-form" data-login-form>
-            <button type="button" class="primary-btn full" data-google-login>Continue with Google</button>
             <div class="order-row">
-              <span>Recommended</span>
-              <span class="value">Login with Google first</span>
+              <span>Google login</span>
+              <span class="value">Use the official Google popup to continue</span>
             </div>
             <label>
               Email or username
