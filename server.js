@@ -1,8 +1,9 @@
 const http = require("http");
 const fs = require("fs");
-const fsp = require("fs/promises");
+const fsp = require("fs/promise");
 const path = require("path");
 const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
@@ -21,6 +22,9 @@ const RESET_REQUEST_LIMIT = Number(process.env.RESET_REQUEST_LIMIT_PER_HOUR || 5
 const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || "dreamhubsadmin").trim().toLowerCase();
 const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "dreamhubsadmin@dreamhubs.local");
 const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "ChangeThisAdminPassword123!");
+const GOOGLE_CLIENT_ID = String(
+  process.env.GOOGLE_CLIENT_ID || "184790123400-pbah8rr03a6csnea4m9m4gsae7vt9bkq.apps.googleusercontent.com"
+).trim();
 const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${PORT}`);
 const SMTP_HOST = String(process.env.SMTP_HOST || "").trim();
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
@@ -42,6 +46,7 @@ const MIME_TYPES = {
 };
 
 const mailTransport = createMailTransport();
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 function loadEnvFile() {
   try {
@@ -599,26 +604,53 @@ async function handleApi(req, res, url) {
     const body = await parseBody(req);
     const db = await readDb();
     cleanupDb(db);
-    const email = normalizeEmail(body.email);
-    const name = String(body.name || "Google User").trim();
-    const emailError = validateEmail(email);
-    if (emailError) {
-      return send(res, 400, { error: emailError });
+    const credential = String(body.credential || "");
+
+    if (!googleClient || !credential) {
+      return send(res, 400, { error: "Google login is not configured correctly." });
     }
 
-    let user = db.users.find((entry) => entry.email === email);
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: GOOGLE_CLIENT_ID
+      });
+    } catch {
+      return send(res, 401, { error: "Google sign-in verification failed." });
+    }
+
+    const payload = ticket.getPayload();
+    const email = normalizeEmail(payload?.email);
+    const name = String(payload?.name || payload?.given_name || "Google User").trim();
+    const googleSub = String(payload?.sub || "");
+    const emailVerified = Boolean(payload?.email_verified);
+    const emailError = validateEmail(email);
+
+    if (emailError || !googleSub || !emailVerified) {
+      return send(res, 400, { error: "Google account email is not verified." });
+    }
+
+    let user = db.users.find((entry) => entry.googleSub === googleSub || entry.email === email);
     if (!user) {
       user = {
         id: generateId("usr"),
         name,
         username: deriveUsername(name || email, db.users),
         email,
+        googleSub,
         passwordHash: "",
         balance: 0,
         provider: "google",
         createdAt: nowIso()
       };
       db.users.push(user);
+    } else {
+      user.googleSub = googleSub;
+      user.provider = "google";
+      if (!user.username) {
+        user.username = deriveUsername(name || email, db.users);
+      }
     }
 
     const token = createSession(db, user.id);
