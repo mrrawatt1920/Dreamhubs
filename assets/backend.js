@@ -470,6 +470,57 @@ async function handleAdminPage() {
     }
   });
 
+  const providerForm = document.querySelector("[data-admin-provider-form]");
+  const providerStatus = document.querySelector("[data-admin-provider-status]");
+  const syncBtn = document.querySelector("[data-admin-provider-sync]");
+
+  if (providerForm) {
+    providerForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const data = await API.request("/api/admin/provider", {
+          method: "POST",
+          admin: true,
+          body: JSON.stringify({
+            url: providerForm.querySelector("[name='url']").value,
+            key: providerForm.querySelector("[name='key']").value,
+            margin: Number(providerForm.querySelector("[name='margin']").value)
+          })
+        });
+        setStatus(providerStatus, data.message || "Settings saved.", "success");
+      } catch (error) {
+        setStatus(providerStatus, error.message, "error");
+      }
+    });
+
+    if (syncBtn) {
+      syncBtn.addEventListener("click", async () => {
+        syncBtn.disabled = true;
+        setStatus(providerStatus, "Syncing services from provider...", "info");
+        try {
+          const data = await API.request("/api/admin/provider/sync", {
+            method: "POST",
+            admin: true
+          });
+          setStatus(providerStatus, data.message, "success");
+        } catch (error) {
+          setStatus(providerStatus, error.message, "error");
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+    }
+
+    try {
+      const { provider } = await API.request("/api/admin/provider", { admin: true });
+      if (provider) {
+        providerForm.querySelector("[name='url']").value = provider.url || "";
+        providerForm.querySelector("[name='key']").value = provider.key || "";
+        providerForm.querySelector("[name='margin']").value = provider.margin || 10;
+      }
+    } catch {}
+  }
+
   await loadDashboard();
 }
 
@@ -597,23 +648,116 @@ async function handleOrderPage() {
   await loadOrders();
 
   if (form) {
+    const categorySelect = document.querySelector("[data-order-category]");
+    const serviceSelect = document.querySelector("[data-order-service]");
+    const minText = document.querySelector("[data-order-min]");
+    const maxText = document.querySelector("[data-order-max]");
+    const rateText = document.querySelector("[data-order-rate]");
+    const descText = document.querySelector("[data-order-desc] span");
+    const quantityInput = document.querySelector("[name='quantity']");
+    const submitBtn = form.querySelector(".order-submit");
+    const submitText = submitBtn ? submitBtn.querySelector("small") : null;
+    let servicesData = [];
+
+    try {
+      const { services } = await API.request("/api/services");
+      servicesData = services || [];
+      const categories = [...new Set(servicesData.map(s => s.category))];
+      if (categorySelect && categories.length) {
+        categorySelect.innerHTML = `<option value="">Select Category</option>` + 
+          categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+      } else if (categorySelect) {
+        categorySelect.innerHTML = `<option value="">No services available</option>`;
+      }
+    } catch {}
+
+    function updateServiceInfo() {
+      const category = categorySelect ? categorySelect.value : "";
+      const sName = serviceSelect ? serviceSelect.value : "";
+      const selected = servicesData.find(s => s.category === category && s.name === sName);
+      if (selected) {
+        if (minText) minText.textContent = selected.min;
+        if (maxText) maxText.textContent = selected.max;
+        if (rateText) rateText.textContent = `₹${Number(selected.ratePer1000).toFixed(2)}`;
+        if (descText) descText.textContent = selected.desc || "No additional details available.";
+        if (quantityInput) {
+          quantityInput.min = selected.min;
+          quantityInput.max = selected.max;
+          if (Number(quantityInput.value) < selected.min) quantityInput.value = selected.min;
+        }
+      } else {
+        if (minText) minText.textContent = "...";
+        if (maxText) maxText.textContent = "...";
+        if (rateText) rateText.textContent = "...";
+        if (descText) descText.textContent = "Select a service to view details.";
+      }
+      updatePrice();
+    }
+
+    function updatePrice() {
+      const category = categorySelect ? categorySelect.value : "";
+      const sName = serviceSelect ? serviceSelect.value : "";
+      const selected = servicesData.find(s => s.category === category && s.name === sName);
+      const q = quantityInput ? Number(quantityInput.value) : 1000;
+      if (selected && submitText) {
+        const total = (q / 1000) * selected.ratePer1000;
+        submitText.textContent = `TOTAL AMOUNT: ₹${total.toFixed(2)}`;
+      } else if (submitText) {
+        submitText.textContent = `TOTAL AMOUNT`;
+      }
+    }
+
+    if (categorySelect && serviceSelect) {
+      categorySelect.addEventListener("change", () => {
+        const cat = categorySelect.value;
+        const matching = servicesData.filter(s => s.category === cat);
+        serviceSelect.innerHTML = `<option value="">Select Service</option>` + 
+          matching.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("");
+        updateServiceInfo();
+      });
+
+      serviceSelect.addEventListener("change", updateServiceInfo);
+    }
+    
+    if (quantityInput) {
+      quantityInput.addEventListener("input", updatePrice);
+    }
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const category = categorySelect ? categorySelect.value : "";
+      const sName = serviceSelect ? serviceSelect.value : "";
+      const selected = servicesData.find(s => s.category === category && s.name === sName);
+      
+      if (!selected) {
+        alert("Please select a valid service.");
+        return;
+      }
+
+      const submitRealBtn = form.querySelector("button[type='submit']");
+      submitRealBtn.disabled = true;
+
       try {
         await API.request("/api/orders", {
           method: "POST",
           body: JSON.stringify({
-            category: form.querySelector("[name='category']").value,
-            service: form.querySelector("[name='service']").value,
+            category: category,
+            service: sName,
             target: form.querySelector("[name='target']").value,
-            quantity: Number(form.querySelector("[name='quantity']").value),
-            ratePer1000: 0.42
+            quantity: Number(quantityInput.value),
+            ratePer1000: selected.ratePer1000
           })
         });
-        form.reset();
+        
         await loadOrders();
+        
+        const oldTarget = form.querySelector("[name='target']").value;
+        form.querySelector("[name='target']").value = "";
+        alert(`Order placed successfully for ${oldTarget}!`);
       } catch (error) {
         alert(error.message);
+      } finally {
+        submitRealBtn.disabled = false;
       }
     });
   }
