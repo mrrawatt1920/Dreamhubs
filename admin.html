@@ -156,25 +156,28 @@
             </ul>
           </article>
 
-          <article class="card" id="services">
+          <article class="card wide" id="services">
             <div class="section-title">
               <h2>Service controls</h2>
               <span>Catalog</span>
             </div>
-            <ul class="stack-list">
-              <li>
-                <strong>Add / remove services</strong>
-                <span>Show only active campaigns on the frontend</span>
-              </li>
-              <li>
-                <strong>Provider mapping</strong>
-                <span>Link local service IDs with external API service IDs</span>
-              </li>
-              <li>
-                <strong>Pricing rules</strong>
-                <span>Adjust rates, min-max quantities, and refill settings</span>
-              </li>
-            </ul>
+            <div class="admin-table-wrapper" style="margin-top: 1rem; max-height: 400px; overflow-y: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Category</th>
+                    <th>Name</th>
+                    <th>Price (₹)</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody data-admin-services-list>
+                  <!-- Services will be loaded here -->
+                </tbody>
+              </table>
+            </div>
+            <p class="auth-note" data-admin-services-status style="margin-top: 10px;"></p>
           </article>
 
           <article class="card" id="funds">

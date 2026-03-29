@@ -823,24 +823,63 @@ async function handleApi(req, res, url) {
       if (!Array.isArray(data)) {
         throw new Error(data.error || "Invalid response from provider.");
       }
-      auth.db.services = data.map(service => {
+      const currentMap = new Map((auth.db.services || []).map(s => [s.id, s]));
+      const nextServices = [];
+      data.forEach(service => {
+        const id = String(service.service);
         const originalRate = Number(service.rate || 0);
         const augmentedRate = Number((originalRate + (originalRate * (margin / 100))).toFixed(4));
-        return {
-          id: String(service.service),
-          category: String(service.category),
-          name: String(service.name),
-          ratePer1000: augmentedRate,
-          min: Number(service.min || 1),
-          max: Number(service.max || 1000),
-          desc: String(service.desc || "")
-        };
+        const extName = String(service.name);
+        const extDesc = String(service.desc || "");
+        const extCat = String(service.category);
+        const extMin = Number(service.min || 1);
+        const extMax = Number(service.max || 1000);
+        
+        const existing = currentMap.get(id);
+        if (existing) {
+          nextServices.push({
+            ...existing,
+            category: existing.category || extCat,
+            name: existing.name || extName,
+            ratePer1000: augmentedRate,
+            min: extMin,
+            max: extMax,
+            desc: existing.desc !== undefined ? existing.desc : extDesc
+          });
+        } else {
+          nextServices.push({
+            id,
+            category: extCat,
+            name: extName,
+            ratePer1000: augmentedRate,
+            min: extMin,
+            max: extMax,
+            desc: extDesc
+          });
+        }
       });
+      auth.db.services = nextServices;
       await writeDb(auth.db);
       return send(res, 200, { message: `Successfully synced ${auth.db.services.length} services!` });
     } catch (e) {
       return send(res, 500, { error: "Failed to sync: " + e.message });
     }
+  }
+
+  if (req.method === "PATCH" && url.pathname === "/api/admin/services") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const id = String(body.id || "");
+    const service = auth.db.services.find(s => s.id === id);
+    if (!service) return send(res, 404, { error: "Service not found." });
+    
+    if (body.name !== undefined) service.name = String(body.name).trim();
+    if (body.desc !== undefined) service.desc = String(body.desc).trim();
+    if (body.ratePer1000 !== undefined) service.ratePer1000 = Number(body.ratePer1000);
+    
+    await writeDb(auth.db);
+    return send(res, 200, { message: "Service updated successfully.", service });
   }
 
   if (req.method === "POST" && url.pathname === "/api/admin/logout") {
