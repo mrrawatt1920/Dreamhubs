@@ -438,29 +438,124 @@ async function handleAdminPage() {
           `).join("");
         }
       }
-      const serviceList = document.querySelector("[data-admin-services-list]");
-      if (serviceList && data.services) {
-        serviceList.innerHTML = data.services.map(s => `
-          <tr>
-            <td>${escapeHtml(s.id)}</td>
-            <td style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px;">
-              ${escapeHtml(s.category)}
-              <div style="display: flex; gap: 2px;">
-                <button title="Edit Category" class="primary-btn mini" style="padding: 2px 5px; font-size: 10px; background: var(--blue);" onclick="editCategory('${escapeHtml(s.category).replace(/'/g, "\\'")}')">✎</button>
-                <button title="Delete Category" class="primary-btn mini" style="padding: 2px 5px; font-size: 10px; background: #ff4444;" onclick="deleteCategory('${escapeHtml(s.category).replace(/'/g, "\\'")}')">×</button>
-              </div>
-            </td>
-            <td>${escapeHtml(s.name)}</td>
-            <td>₹${Number(s.ratePer1000).toFixed(4)}</td>
-            <td>
-              <div style="display: flex; gap: 5px;">
-                <button class="primary-btn mini" onclick="editService('${escapeHtml(s.id)}', '${escapeHtml(s.category).replace(/'/g, "\\'")}', '${escapeHtml(s.name.replace(/'/g, "\\'"))}', ${s.ratePer1000})">Edit</button>
-                <button class="primary-btn mini" style="background: #ff4444;" onclick="deleteService('${escapeHtml(s.id)}')">Delete</button>
-              </div>
-            </td>
-          </tr>
-        `).join("");
+      const categorySelect = document.querySelector("[data-admin-category-select]");
+      const serviceSelect = document.querySelector("[data-admin-service-select]");
+      const detailId = document.querySelector("[data-detail-id]");
+      const detailRate = document.querySelector("[data-detail-rate]");
+      const detailLimit = document.querySelector("[data-detail-limit]");
+      const detailDesc = document.querySelector("[data-detail-desc]");
+      
+      let servicesData = data.services || [];
+
+      function updateAdminServiceDetails() {
+        const cat = categorySelect ? categorySelect.value : "";
+        const sName = serviceSelect ? serviceSelect.value : "";
+        const selected = servicesData.find(s => s.category === cat && s.name === sName);
+        
+        if (selected) {
+          if (detailId) detailId.textContent = selected.id;
+          if (detailRate) detailRate.textContent = `₹${Number(selected.ratePer1000).toFixed(4)}`;
+          if (detailLimit) detailLimit.textContent = `${selected.min} / ${selected.max}`;
+          if (detailDesc) detailDesc.textContent = selected.desc || "No description available.";
+        } else {
+          if (detailId) detailId.textContent = "...";
+          if (detailRate) detailRate.textContent = "...";
+          if (detailLimit) detailLimit.textContent = "...";
+          if (detailDesc) detailDesc.textContent = "Select a service to view details.";
+        }
       }
+
+      if (categorySelect && serviceSelect) {
+        const categories = [...new Set(servicesData.map(s => s.category))];
+        categorySelect.innerHTML = `<option value="">Select Category</option>` + 
+          categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+          
+        categorySelect.onchange = () => {
+          const cat = categorySelect.value;
+          const matching = servicesData.filter(s => s.category === cat);
+          serviceSelect.innerHTML = `<option value="">Select Service</option>` + 
+            matching.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("");
+          updateAdminServiceDetails();
+        };
+
+        serviceSelect.onchange = updateAdminServiceDetails;
+      }
+
+      window.adminEditCategory = async () => {
+        const oldName = categorySelect.value;
+        if (!oldName) return alert("Please select a category first.");
+        const newName = prompt("Enter new name for this category:", oldName);
+        if (!newName || newName === oldName) return;
+        try {
+          const res = await API.request("/api/admin/categories", {
+            method: "PATCH",
+            admin: true,
+            body: JSON.stringify({ oldName, newName })
+          });
+          alert(res.message);
+          location.reload();
+        } catch (error) { alert(error.message); }
+      };
+
+      window.adminDeleteCategory = async () => {
+        const name = categorySelect.value;
+        if (!name) return alert("Please select a category first.");
+        if (!confirm(`Are you sure? This will delete ALL services in "${name}"!`)) return;
+        try {
+          const res = await API.request(`/api/admin/categories?name=${encodeURIComponent(name)}`, {
+            method: "DELETE",
+            admin: true
+          });
+          alert(res.message);
+          location.reload();
+        } catch (error) { alert(error.message); }
+      };
+
+      window.adminEditService = async () => {
+        const cat = categorySelect.value;
+        const sName = serviceSelect.value;
+        const selected = servicesData.find(s => s.category === cat && s.name === sName);
+        if (!selected) return alert("Please select a service first.");
+        
+        const newCategory = prompt("Enter new category name:", selected.category);
+        if (newCategory === null) return;
+        const newName = prompt("Enter new service name:", selected.name);
+        if (newName === null) return;
+        const newRate = prompt("Enter new rate per 1000 (₹):", selected.ratePer1000);
+        if (newRate === null) return;
+
+        try {
+          const res = await API.request("/api/admin/services", {
+            method: "PATCH",
+            admin: true,
+            body: JSON.stringify({
+              id: selected.id,
+              category: newCategory,
+              name: newName,
+              ratePer1000: Number(newRate)
+            })
+          });
+          alert(res.message);
+          location.reload();
+        } catch (error) { alert(error.message); }
+      };
+
+      window.adminDeleteService = async () => {
+        const cat = categorySelect.value;
+        const sName = serviceSelect.value;
+        const selected = servicesData.find(s => s.category === cat && s.name === sName);
+        if (!selected) return alert("Please select a service first.");
+        if (!confirm("Are you sure you want to delete this service?")) return;
+        try {
+          const res = await API.request(`/api/admin/services?id=${encodeURIComponent(selected.id)}`, {
+            method: "DELETE",
+            admin: true
+          });
+          alert(res.message);
+          location.reload();
+        } catch (error) { alert(error.message); }
+      };
+
 
     } catch (error) {
       API.clearAdminSession();
@@ -946,12 +1041,11 @@ function handleLogout() {
 }
 
 window.editService = async function(id, currentCategory, currentName, currentRate) {
+  // Keeping this for backward compatibility if needed, but admin panels uses adminEditService now
   const newCategory = prompt("Enter new category name:", currentCategory);
   if (newCategory === null) return;
-
   const newName = prompt("Enter new service name:", currentName);
   if (newName === null) return;
-  
   const newRate = prompt("Enter new rate per 1000 (₹):", currentRate);
   if (newRate === null) return;
 
@@ -959,65 +1053,11 @@ window.editService = async function(id, currentCategory, currentName, currentRat
     const res = await API.request("/api/admin/services", {
       method: "PATCH",
       admin: true,
-      body: JSON.stringify({
-        id,
-        category: newCategory,
-        name: newName,
-        ratePer1000: Number(newRate)
-      })
+      body: JSON.stringify({ id, category: newCategory, name: newName, ratePer1000: Number(newRate) })
     });
     alert(res.message);
     location.reload();
-  } catch (error) {
-    alert("Error: " + error.message);
-  }
-};
-
-window.deleteService = async function(id) {
-  if (!confirm("Are you sure you want to delete this service?")) return;
-
-  try {
-    const res = await API.request(`/api/admin/services?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      admin: true
-    });
-    alert(res.message);
-    location.reload();
-  } catch (error) {
-    alert("Error: " + error.message);
-  }
-};
-
-window.editCategory = async function(oldName) {
-  const newName = prompt("Enter new name for this category:", oldName);
-  if (!newName || newName === oldName) return;
-
-  try {
-    const res = await API.request("/api/admin/categories", {
-      method: "PATCH",
-      admin: true,
-      body: JSON.stringify({ oldName, newName })
-    });
-    alert(res.message);
-    location.reload();
-  } catch (error) {
-    alert("Error: " + error.message);
-  }
-};
-
-window.deleteCategory = async function(name) {
-  if (!confirm(`Are you sure you want to delete the category "${name}"? This will delete ALL services in this category!`)) return;
-
-  try {
-    const res = await API.request(`/api/admin/categories?name=${encodeURIComponent(name)}`, {
-      method: "DELETE",
-      admin: true
-    });
-    alert(res.message);
-    location.reload();
-  } catch (error) {
-    alert("Error: " + error.message);
-  }
+  } catch (error) { alert("Error: " + error.message); }
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
