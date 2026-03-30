@@ -908,6 +908,7 @@ async function handleApi(req, res, url) {
       const otherServices = (auth.db.services || []).filter(s => s.providerId !== providerId);
       const nextServices = [];
       
+      const exRate = Number(provider.exchangeRate || 1);
       console.log(`[Sync] Starting sync for provider: ${provider.name} (ID: ${providerId})`);
       console.log(`[Sync] Using Exchange Rate: ${exRate} and Margin: ${margin}%`);
 
