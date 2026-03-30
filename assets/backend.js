@@ -589,57 +589,97 @@ async function handleAdminPage() {
     }
   });
 
-  const providerForm = document.querySelector("[data-admin-provider-form]");
   const providerStatus = document.querySelector("[data-admin-provider-status]");
-  const syncBtn = document.querySelector("[data-admin-provider-sync]");
+  const providersList = document.querySelector("[data-admin-providers-list]");
+  const addProviderForm = document.querySelector("[data-admin-add-provider-form]");
 
-  if (providerForm) {
-    providerForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      try {
-        const data = await API.request("/api/admin/provider", {
-          method: "POST",
-          admin: true,
-          body: JSON.stringify({
-            url: providerForm.querySelector("[name='url']").value,
-            key: providerForm.querySelector("[name='key']").value,
-            margin: Number(providerForm.querySelector("[name='margin']").value)
-          })
-        });
-        setStatus(providerStatus, data.message || "Settings saved.", "success");
-      } catch (error) {
-        setStatus(providerStatus, error.message, "error");
-      }
-    });
-
-    if (syncBtn) {
-      syncBtn.addEventListener("click", async () => {
-        syncBtn.disabled = true;
-        setStatus(providerStatus, "Syncing services from provider...", "info");
-        try {
-          const data = await API.request("/api/admin/provider/sync", {
-            method: "POST",
-            admin: true
-          });
-          setStatus(providerStatus, data.message, "success");
-        } catch (error) {
-          setStatus(providerStatus, error.message, "error");
-        } finally {
-          syncBtn.disabled = false;
-        }
-      });
-    }
-
+  async function loadProviders() {
+    if (!providersList) return;
     try {
-      const { provider } = await API.request("/api/admin/provider", { admin: true });
-      if (provider) {
-        providerForm.querySelector("[name='url']").value = provider.url || "";
-        providerForm.querySelector("[name='key']").value = provider.key || "";
-        providerForm.querySelector("[name='margin']").value = provider.margin || 10;
-      }
+      const { providers } = await API.request("/api/admin/providers", { admin: true });
+      providersList.innerHTML = providers.map(p => `
+        <tr>
+          <td>${escapeHtml(p.name)}</td>
+          <td style="font-size: 0.8rem;">${escapeHtml(p.url)}</td>
+          <td>${p.margin}%</td>
+          <td>
+            <div style="display: flex; gap: 5px;">
+              <button class="primary-btn mini" style="background: var(--blue);" onclick="adminSyncProvider('${p.id}')">Sync</button>
+              <button class="primary-btn mini" onclick="adminEditProvider('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}', '${escapeHtml(p.url).replace(/'/g, "\\'")}', ${p.margin})">Edit</button>
+              <button class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteProvider('${p.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
     } catch {}
   }
 
+  if (addProviderForm) {
+    addProviderForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = addProviderForm.querySelector("button");
+      btn.disabled = true;
+      setStatus(providerStatus, "Adding provider...", "info");
+      try {
+        await API.request("/api/admin/providers", {
+          method: "POST",
+          admin: true,
+          body: JSON.stringify({
+            name: addProviderForm.querySelector("[name='name']").value,
+            url: addProviderForm.querySelector("[name='url']").value,
+            key: addProviderForm.querySelector("[name='key']").value,
+            margin: Number(addProviderForm.querySelector("[name='margin']").value)
+          })
+        });
+        addProviderForm.reset();
+        await loadProviders();
+        setStatus(providerStatus, "Provider added successfully.", "success");
+      } catch (err) { setStatus(providerStatus, err.message, "error"); }
+      finally { btn.disabled = false; }
+    });
+  }
+
+  window.adminEditProvider = async (id, name, url, margin) => {
+    const newName = prompt("Provider Name:", name);
+    if (newName === null) return;
+    const newUrl = prompt("API URL:", url);
+    if (newUrl === null) return;
+    const newKey = prompt("API Key (leave blank to keep current):", "");
+    const newMargin = prompt("Profit Margin (%):", margin);
+    if (newMargin === null) return;
+
+    try {
+      const body = { id, name: newName, url: newUrl, margin: Number(newMargin) };
+      if (newKey) body.key = newKey;
+      await API.request("/api/admin/providers", { method: "PATCH", admin: true, body: JSON.stringify(body) });
+      await loadProviders();
+      alert("Provider updated.");
+    } catch (err) { alert(err.message); }
+  };
+
+  window.adminDeleteProvider = async (id) => {
+    if (!confirm("Are you sure? Removing a provider will also delete all its services.")) return;
+    try {
+      await API.request(`/api/admin/providers?id=${encodeURIComponent(id)}`, { method: "DELETE", admin: true });
+      await loadProviders();
+      alert("Provider removed.");
+    } catch (err) { alert(err.message); }
+  };
+
+  window.adminSyncProvider = async (providerId) => {
+    setStatus(providerStatus, "Syncing services from provider...", "info");
+    try {
+      const res = await API.request("/api/admin/provider/sync", {
+        method: "POST",
+        admin: true,
+        body: JSON.stringify({ providerId })
+      });
+      setStatus(providerStatus, res.message, "success");
+      await loadDashboard(); // Reload services for dropdowns
+    } catch (err) { setStatus(providerStatus, err.message, "error"); }
+  };
+
+  await loadProviders();
   await loadDashboard();
 }
 
