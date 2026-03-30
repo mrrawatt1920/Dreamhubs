@@ -398,19 +398,32 @@ async function handleAdminPage() {
       if (ticketList) {
         const tickets = data.tickets.slice(0, 5);
         if (!tickets.length) {
-          ticketList.innerHTML = `
-            <li>
-              <strong>No tickets found</strong>
-              <span>There are no support tickets right now.</span>
-            </li>
-          `;
+          ticketList.innerHTML = `<li><strong>No tickets found</strong><span>There are no support tickets right now.</span></li>`;
         } else {
-          ticketList.innerHTML = tickets.map((ticket) => `
-            <li>
-              <strong>${escapeHtml(ticket.subject)}</strong>
-              <span>${escapeHtml(ticket.message)}</span>
-            </li>
-          `).join("");
+          ticketList.innerHTML = tickets.map((ticket) => {
+            const statusColor = ticket.status === "Pending" ? "var(--accent)" : (ticket.status === "Answered" ? "var(--green)" : (ticket.status === "Closed" ? "#777" : "var(--blue)"));
+            return `
+              <li style="padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                  <div>
+                    <strong style="color: ${statusColor};">#${ticket.id} – ${escapeHtml(ticket.status)}</strong><br>
+                    <strong>${escapeHtml(ticket.subject)}</strong>
+                    <p style="margin: 5px 0; font-size: 0.9rem; color: var(--muted);">${escapeHtml(ticket.message)}</p>
+                    ${ticket.replies ? ticket.replies.map(r => `
+                      <div style="margin-top: 8px; padding: 8px; border-left: 2px solid var(--accent); background: rgba(0,0,0,0.02); font-size: 0.85rem;">
+                        <strong>${r.from}:</strong> ${escapeHtml(r.message)}
+                      </div>
+                    `).join("") : ""}
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <button class="primary-btn mini" onclick="adminTicketReply('${ticket.id}')">Reply</button>
+                    ${ticket.status !== "In Progress" && ticket.status !== "Closed" ? `<button class="primary-btn mini" style="background: var(--blue);" onclick="adminTicketAction('${ticket.id}', 'In Progress')">Work On It</button>` : ""}
+                    ${ticket.status !== "Closed" ? `<button class="primary-btn mini" style="background: #e74c3c;" onclick="adminTicketAction('${ticket.id}', 'Closed')">Close</button>` : ""}
+                  </div>
+                </div>
+              </li>
+            `;
+          }).join("");
         }
       }
 
@@ -464,7 +477,11 @@ async function handleAdminPage() {
                       <button class="primary-btn mini" style="background: #27ae60;" onclick="adminFundAction('${item.id}', 'approve')">Approve</button>
                       <button class="primary-btn mini" style="background: #e74c3c;" onclick="adminFundAction('${item.id}', 'reject')">Reject</button>
                     </div>
-                  ` : ''}
+                  ` : (item.status === "Rejected" ? `
+                    <div style="display: flex; gap: 8px;">
+                      <button class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteFundRequest('${item.id}')">Delete</button>
+                    </div>
+                  ` : '')}
                 </div>
               </li>
             `;
@@ -1004,12 +1021,24 @@ async function handleTicketsPage() {
       return;
     }
 
-    list.innerHTML = data.tickets.map((ticket) => `
-      <li>
-        <strong>#${ticket.id} ${ticket.subject}</strong>
-        <span>Status: ${ticket.status}</span>
-      </li>
-    `).join("");
+    list.innerHTML = data.tickets.map((ticket) => {
+      const statusColor = ticket.status === "Pending" ? "var(--accent)" : (ticket.status === "Answered" ? "var(--green)" : (ticket.status === "Closed" ? "#777" : "var(--blue)"));
+      return `
+        <li style="padding: 15px; border-bottom: 1px solid var(--line);">
+          <div style="display: flex; justify-content: space-between;">
+            <strong>#${ticket.id} ${escapeHtml(ticket.subject)}</strong>
+            <span style="font-weight: 700; color: ${statusColor};">${ticket.status}</span>
+          </div>
+          <p style="margin: 8px 0; font-size: 0.95rem;">${escapeHtml(ticket.message)}</p>
+          ${ticket.replies ? ticket.replies.map(r => `
+            <div style="margin-top: 10px; padding: 10px; background: var(--accent-soft); border-radius: 8px; border-left: 4px solid var(--accent);">
+              <small style="font-weight: 800; color: var(--accent); text-transform: uppercase;">Reply from Team</small>
+              <p style="margin: 4px 0 0; color: var(--text);">${escapeHtml(r.message)}</p>
+            </div>
+          `).join("") : ""}
+        </li>
+      `;
+    }).join("");
   }
 
   await loadTickets();
@@ -1235,6 +1264,46 @@ window.adminFundAction = async function(id, action) {
   } catch (error) {
     alert("Error: " + error.message);
   }
+};
+
+window.adminDeleteFundRequest = async function(id) {
+  if (!confirm("Are you sure you want to delete this fund request?")) return;
+  try {
+    const res = await API.request(`/api/admin/funds?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      admin: true
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
+window.adminTicketReply = async function(id) {
+  const message = prompt("Enter your reply to the user:");
+  if (!message) return;
+  
+  try {
+    const res = await API.request("/api/admin/tickets/reply", {
+      method: "POST",
+      admin: true,
+      body: JSON.stringify({ id, message })
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
+window.adminTicketAction = async function(id, status) {
+  if (!confirm(`Mark this ticket as ${status}?`)) return;
+  try {
+    const res = await API.request("/api/admin/tickets/status", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ id, status })
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
