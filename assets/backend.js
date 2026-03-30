@@ -1022,7 +1022,7 @@ async function handleOrderPage() {
       submitRealBtn.disabled = true;
 
       try {
-        await API.request("/api/orders", {
+        const result = await API.request("/api/orders", {
           method: "POST",
           body: JSON.stringify({
             category: category,
@@ -1032,14 +1032,29 @@ async function handleOrderPage() {
             ratePer1000: selected.ratePer1000
           })
         });
-        
+
+        // ✅ Instantly update balance on screen after deduction
+        if (result.balance !== undefined) {
+          setText("[data-balance]", `Rs ${Number(result.balance).toFixed(2)}`);
+          // Also update cached user so other pages are consistent
+          const cachedUser = API.getUser();
+          if (cachedUser) {
+            cachedUser.balance = result.balance;
+            localStorage.setItem(API.userKey, JSON.stringify(cachedUser));
+          }
+        }
+
         await loadOrders();
         
         const oldTarget = form.querySelector("[name='target']").value;
         form.querySelector("[name='target']").value = "";
-        alert(`Order placed successfully for ${oldTarget}!`);
+
+        const statusMsg = result.order?.providerOrderId
+          ? `✅ Order placed & sent to provider!\nProvider Order ID: ${result.order.providerOrderId}\nCharged: ₹${result.order.charge}`
+          : `✅ Order placed successfully!\nOrder ID: ${result.order?.id}\nCharged: ₹${result.order?.charge}`;
+        alert(statusMsg);
       } catch (error) {
-        alert(error.message);
+        alert("❌ " + error.message);
       } finally {
         submitRealBtn.disabled = false;
       }
