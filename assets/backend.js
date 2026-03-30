@@ -96,6 +96,17 @@ function setStatus(element, message, tone = "") {
   }
 }
 
+window.togglePassword = function(btn) {
+  const input = btn.previousElementSibling;
+  if (input.type === "password") {
+    input.type = "text";
+    btn.textContent = "Hide";
+  } else {
+    input.type = "password";
+    btn.textContent = "Show";
+  }
+};
+
 async function waitForGoogleIdentity(maxAttempts = 20, delayMs = 300) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (window.google?.accounts?.id) {
@@ -627,7 +638,7 @@ async function handleAdminPage() {
       });
       API.setAdminSession(data);
       form.reset();
-      await loadDashboard();
+      await window.refreshAdminDashboard();
     } catch (error) {
       setStatus(status, error.message, "error");
     }
@@ -723,12 +734,12 @@ async function handleAdminPage() {
         body: JSON.stringify({ providerId })
       });
       setStatus(providerStatus, res.message, "success");
-      await loadDashboard(); // Reload services for dropdowns
+      await window.refreshAdminDashboard(); // Reload services for dropdowns
     } catch (err) { setStatus(providerStatus, err.message, "error"); }
   };
 
   await loadProviders();
-  await loadDashboard();
+  await window.refreshAdminDashboard();
 }
 
 async function ensureAuth() {

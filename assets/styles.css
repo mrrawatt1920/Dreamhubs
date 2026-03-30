@@ -308,6 +308,34 @@ h2 {
   background: var(--surface-strong);
 }
 
+.password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-field input {
+  padding-right: 50px !important;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+
+.toggle-password:hover {
+  opacity: 0.8;
+}
+
 .stats-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
