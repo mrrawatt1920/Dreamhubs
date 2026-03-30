@@ -903,11 +903,59 @@ async function handleApi(req, res, url) {
     if (!service) return send(res, 404, { error: "Service not found." });
     
     if (body.name !== undefined) service.name = String(body.name).trim();
+    if (body.category !== undefined) service.category = String(body.category).trim();
     if (body.desc !== undefined) service.desc = String(body.desc).trim();
     if (body.ratePer1000 !== undefined) service.ratePer1000 = Number(body.ratePer1000);
     
     await writeDb(auth.db);
     return send(res, 200, { message: "Service updated successfully.", service });
+  }
+
+  if (req.method === "DELETE" && url.pathname === "/api/admin/services") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const id = String(url.searchParams.get("id") || "");
+    const index = auth.db.services.findIndex(s => s.id === id);
+    if (index === -1) return send(res, 404, { error: "Service not found." });
+    
+    auth.db.services.splice(index, 1);
+    await writeDb(auth.db);
+    return send(res, 200, { message: "Service deleted successfully." });
+  }
+
+  if (req.method === "PATCH" && url.pathname === "/api/admin/categories") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const oldName = String(body.oldName || "").trim();
+    const newName = String(body.newName || "").trim();
+    
+    if (!oldName || !newName) return send(res, 400, { error: "Old name and new name are required." });
+    
+    let updatedCount = 0;
+    auth.db.services.forEach(s => {
+      if (s.category === oldName) {
+        s.category = newName;
+        updatedCount++;
+      }
+    });
+    
+    await writeDb(auth.db);
+    return send(res, 200, { message: `Successfully renamed category for ${updatedCount} services.` });
+  }
+
+  if (req.method === "DELETE" && url.pathname === "/api/admin/categories") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const name = String(url.searchParams.get("name") || "").trim();
+    if (!name) return send(res, 400, { error: "Category name is required." });
+    
+    const originalLength = auth.db.services.length;
+    auth.db.services = auth.db.services.filter(s => s.category !== name);
+    const deletedCount = originalLength - auth.db.services.length;
+    
+    await writeDb(auth.db);
+    return send(res, 200, { message: `Successfully deleted category and ${deletedCount} associated services.` });
   }
 
   if (req.method === "POST" && url.pathname === "/api/admin/logout") {
