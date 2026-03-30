@@ -28,12 +28,196 @@ const PORT = Number(process.env.PORT || 3000);
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_HOURS || 168) * 60 * 60 * 1000;
 const RESET_TOKEN_TTL_MS = Number(process.env.RESET_LINK_TTL_MINUTES || 5) * 60 * 1000;
 const LOGIN_MAX_FAILURES = Number(process.env.LOGIN_MAX_FAILURES || 5);
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ChangeThisAdminPassword123!";
+
+const THEMES = {
+  classic: {
+    name: "Classic Cream",
+    vars: {
+      "--bg": "#f5f1e8", "--bg-soft": "#fffaf0", "--surface": "rgba(255, 252, 246, 0.82)", "--surface-strong": "#fffdfa",
+      "--text": "#1f1d1a", "--muted": "#645d55", "--line": "rgba(59, 45, 28, 0.12)", "--accent": "#4834d4",
+      "--accent-strong": "#3725b4", "--accent-soft": "rgba(72, 52, 212, 0.16)", "--shadow": "0 24px 70px rgba(74, 50, 24, 0.12)",
+      "--hero-gradient": "linear-gradient(135deg, #f6efe2 0%, #f8f4ed 55%, #f1eadf 100%)"
+    }
+  },
+  midnight: {
+    name: "Midnight Purple",
+    vars: {
+      "--bg": "#0c0a1e", "--bg-soft": "#121029", "--surface": "rgba(20, 18, 43, 0.9)", "--surface-strong": "#181631",
+      "--text": "#eceafb", "--muted": "#9692c3", "--line": "rgba(255, 255, 255, 0.1)", "--accent": "#c678ff",
+      "--accent-strong": "#a65fe0", "--accent-soft": "rgba(198, 120, 255, 0.12)", "--shadow": "0 24px 70px rgba(0, 0, 0, 0.4)",
+      "--hero-gradient": "linear-gradient(135deg, #0c0a1e 0%, #121029 100%)"
+    }
+  },
+  emerald: {
+    name: "Emerald Dark",
+    vars: {
+      "--bg": "#08100e", "--bg-soft": "#0d1a17", "--surface": "rgba(13, 26, 23, 0.9)", "--surface-strong": "#122521",
+      "--text": "#e2f2ef", "--muted": "#8baca4", "--line": "rgba(255, 255, 255, 0.1)", "--accent": "#2ecc71",
+      "--accent-strong": "#27ae60", "--accent-soft": "rgba(46, 204, 113, 0.12)", "--shadow": "0 24px 70px rgba(0, 0, 0, 0.45)",
+      "--hero-gradient": "linear-gradient(135deg, #08100e 0%, #0d1a17 100%)"
+    }
+  },
+  ocean: {
+    name: "Deep Ocean",
+    vars: {
+      "--bg": "#0a1321", "--bg-soft": "#0f1c2f", "--surface": "rgba(15, 28, 47, 0.92)", "--surface-strong": "#13243d",
+      "--text": "#eaf2ff", "--muted": "#90abbf", "--line": "rgba(255, 255, 255, 0.1)", "--accent": "#3498db",
+      "--accent-strong": "#2980b9", "--accent-soft": "rgba(52, 152, 219, 0.12)", "--shadow": "0 24px 70px rgba(0, 0, 0, 0.4)",
+      "--hero-gradient": "linear-gradient(135deg, #0a1321 0%, #0f1c2f 100%)"
+    }
+  },
+  sunset: {
+    name: "Desert Sunset",
+    vars: {
+      "--bg": "#1a0f0e", "--bg-soft": "#241615", "--surface": "rgba(36, 22, 21, 0.9)", "--surface-strong": "#2f1d1c",
+      "--text": "#fde4e2", "--muted": "#af8c8a", "--line": "rgba(255, 255, 255, 0.1)", "--accent": "#e67e22",
+      "--accent-strong": "#d35400", "--accent-soft": "rgba(230, 126, 34, 0.12)", "--shadow": "0 24px 70px rgba(0, 0, 0, 0.45)",
+      "--hero-gradient": "linear-gradient(135deg, #1a0f0e 0%, #241615 100%)"
+    }
+  },
+  minimal: {
+    name: "Clean White",
+    vars: {
+      "--bg": "#ffffff", "--bg-soft": "#f9fafb", "--surface": "#ffffff", "--surface-strong": "#f3f4f6",
+      "--text": "#111827", "--muted": "#4b5563", "--line": "rgba(0, 0, 0, 0.1)", "--accent": "#000000",
+      "--accent-strong": "#1a1a1a", "--accent-soft": "rgba(0, 0, 0, 0.05)", "--shadow": "0 1px 3px rgba(0,0,0,0.1)",
+      "--hero-gradient": "#ffffff"
+    }
+  },
+  cyber: {
+    name: "Cyber Neon",
+    vars: {
+      "--bg": "#050505", "--bg-soft": "#0f0f0f", "--surface": "rgba(15, 15, 15, 0.95)", "--surface-strong": "#1a1a1a",
+      "--text": "#00ffcc", "--muted": "#00a382", "--line": "rgba(0, 255, 204, 0.2)", "--accent": "#ff007f",
+      "--accent-strong": "#d6006b", "--accent-soft": "rgba(255, 0, 127, 0.1)", "--shadow": "0 0 15px rgba(255, 0, 127, 0.3)",
+      "--hero-gradient": "linear-gradient(135deg, #050505 0%, #0f0f0f 100%)"
+    }
+  },
+  obsidian: {
+    name: "Total Dark",
+    vars: {
+      "--bg": "#000000", "--bg-soft": "#050505", "--surface": "#0a0a0a", "--surface-strong": "#111111",
+      "--text": "#ffffff", "--muted": "#888888", "--line": "#222222", "--accent": "#ffffff",
+      "--accent-strong": "#eeeeee", "--accent-soft": "rgba(255, 255, 255, 0.1)", "--shadow": "0 0 20px rgba(255,255,255,0.05)",
+      "--hero-gradient": "#000000"
+    }
+  },
+  emerald_glass: {
+    name: "Emerald Glass",
+    vars: {
+      "--bg": "#f0fdf4", "--bg-soft": "#dcfce7", "--surface": "rgba(255, 255, 255, 0.9)", "--surface-strong": "#ffffff",
+      "--text": "#166534", "--muted": "#3f6212", "--line": "rgba(22, 101, 52, 0.1)", "--accent": "#16a34a",
+      "--accent-strong": "#15803d", "--accent-soft": "rgba(22, 163, 74, 0.1)", "--shadow": "0 4px 6px rgba(0,0,0,0.05)",
+      "--hero-gradient": "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)"
+    }
+  },
+  nordic: {
+    name: "Nordic Frost",
+    vars: {
+      "--bg": "#f1f5f9", "--bg-soft": "#e2e8f0", "--surface": "rgba(255, 255, 255, 0.9)", "--surface-strong": "#ffffff",
+      "--text": "#334155", "--muted": "#64748b", "--line": "rgba(51, 65, 85, 0.1)", "--accent": "#2563eb",
+      "--accent-strong": "#1d4ed8", "--accent-soft": "rgba(37, 99, 235, 0.1)", "--shadow": "0 10px 15px rgba(0,0,0,0.05)",
+      "--hero-gradient": "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)"
+    }
+  },
+  royal: {
+    name: "Royal Navy",
+    vars: {
+      "--bg": "#1e3a8a", "--bg-soft": "#1e40af", "--surface": "rgba(30, 58, 138, 0.95)", "--surface-strong": "#1d4ed8",
+      "--text": "#ffffff", "--muted": "#bfdbfe", "--line": "rgba(255, 255, 255, 0.15)", "--accent": "#fbbf24",
+      "--accent-strong": "#f59e0b", "--accent-soft": "rgba(251, 191, 36, 0.15)", "--shadow": "0 20px 40px rgba(0,0,0,0.3)",
+      "--hero-gradient": "linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)"
+    }
+  },
+  gold_dark: {
+    name: "Gold & Charcoal",
+    vars: {
+      "--bg": "#121212", "--bg-soft": "#1a1a1a", "--surface": "rgba(26, 26, 26, 0.95)", "--surface-strong": "#222222",
+      "--text": "#f1c40f", "--muted": "#c29d0b", "--line": "rgba(241, 196, 15, 0.15)", "--accent": "#f39c12",
+      "--accent-strong": "#e67e22", "--accent-soft": "rgba(243, 156, 18, 0.12)", "--shadow": "0 10px 30px rgba(0,0,0,0.5)",
+      "--hero-gradient": "linear-gradient(135deg, #121212 0%, #1a1a1a 100%)"
+    }
+  },
+  coffee: {
+    name: "Rich Espresso",
+    vars: {
+      "--bg": "#fafaf9", "--bg-soft": "#f5f5f4", "--surface": "rgba(255, 255, 255, 0.95)", "--surface-strong": "#ffffff",
+      "--text": "#44403c", "--muted": "#78716c", "--line": "rgba(68, 64, 60, 0.1)", "--accent": "#78350f",
+      "--accent-strong": "#451a03", "--accent-soft": "rgba(120, 53, 15, 0.08)", "--shadow": "0 4px 6px rgba(0,0,0,0.05)",
+      "--hero-gradient": "linear-gradient(135deg, #fafaf9 0%, #f5f5f4 100%)"
+    }
+  },
+  slate_storm: {
+    name: "Slate Storm",
+    vars: {
+      "--bg": "#0f172a", "--bg-soft": "#1e293b", "--surface": "rgba(30, 41, 59, 0.9)", "--surface-strong": "#334155",
+      "--text": "#f8fafc", "--muted": "#94a3b8", "--line": "rgba(255, 255, 255, 0.1)", "--accent": "#38bdf8",
+      "--accent-strong": "#0ea5e9", "--accent-soft": "rgba(56, 189, 248, 0.12)", "--shadow": "0 20px 50px rgba(0,0,0,0.3)",
+      "--hero-gradient": "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)"
+    }
+  },
+  rose: {
+    name: "Rose Quartz",
+    vars: {
+      "--bg": "#fff1f2", "--bg-soft": "#ffe4e6", "--surface": "rgba(255, 255, 255, 0.9)", "--surface-strong": "#ffffff",
+      "--text": "#9f1239", "--muted": "#be123c", "--line": "rgba(159, 18, 57, 0.1)", "--accent": "#e11d48",
+      "--accent-strong": "#be123c", "--accent-soft": "rgba(225, 29, 72, 0.1)", "--shadow": "0 4px 6px rgba(0,0,0,0.05)",
+      "--hero-gradient": "linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)"
+    }
+  },
+  lavender: {
+    name: "Dreamy Purple",
+    vars: {
+      "--bg": "#fdf4ff", "--bg-soft": "#fae8ff", "--surface": "#ffffff", "--surface-strong": "#faf5ff",
+      "--text": "#701a75", "--muted": "#86198f", "--line": "rgba(112, 26, 117, 0.1)", "--accent": "#d946ef",
+      "--accent-strong": "#c026d3", "--accent-soft": "rgba(217, 70, 239, 0.1)", "--shadow": "0 4px 10px rgba(0,0,0,0.05)",
+      "--hero-gradient": "linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%)"
+    }
+  },
+  solar: {
+    name: "Solar Energy",
+    vars: {
+      "--bg": "#fffbeb", "--bg-soft": "#fef3c7", "--surface": "#ffffff", "--surface-strong": "#fffdfa",
+      "--text": "#92400e", "--muted": "#b45309", "--line": "rgba(146, 64, 14, 0.1)", "--accent": "#f59e0b",
+      "--accent-strong": "#d97706", "--accent-soft": "rgba(245, 158, 11, 0.1)", "--shadow": "0 4px 6px rgba(0,0,0,0.05)",
+      "--hero-gradient": "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)"
+    }
+  },
+  sepia: {
+    name: "Warm Sepia",
+    vars: {
+      "--bg": "#fefaf3", "--bg-soft": "#fdf1e1", "--surface": "#ffffff", "--surface-strong": "#fffdfa",
+      "--text": "#433422", "--muted": "#7c6a4e", "--line": "rgba(67, 52, 34, 0.1)", "--accent": "#a0522d",
+      "--accent-strong": "#8b4513", "--accent-soft": "rgba(160, 82, 45, 0.1)", "--shadow": "0 4px 10px rgba(0,0,0,0.05)",
+      "--hero-gradient": "linear-gradient(135deg, #fefaf3 0%, #fdf1e1 100%)"
+    }
+  },
+  crimson: {
+    name: "Crimson Night",
+    vars: {
+      "--bg": "#2d0a0a", "--bg-soft": "#3d1111", "--surface": "rgba(61, 17, 17, 0.95)", "--surface-strong": "#4d1d1d",
+      "--text": "#ffebeb", "--muted": "#ffcccc", "--line": "rgba(255, 235, 235, 0.1)", "--accent": "#ff4d4d",
+      "--accent-strong": "#b91c1c", "--accent-soft": "rgba(255, 77, 77, 0.15)", "--shadow": "0 20px 40px rgba(0,0,0,0.3)",
+      "--hero-gradient": "linear-gradient(135deg, #2d0a0a 0%, #3d1111 100%)"
+    }
+  },
+  nebula: {
+    name: "Stellar Nebula",
+    vars: {
+      "--bg": "#020617", "--bg-soft": "#0f172a", "--surface": "rgba(15, 23, 42, 0.95)", "--surface-strong": "#1e293b",
+      "--text": "#f1f5f9", "--muted": "#94a3b8", "--line": "rgba(241, 245, 249, 0.1)", "--accent": "#6366f1",
+      "--accent-strong": "#4f46e5", "--accent-soft": "rgba(99, 102, 241, 0.15)", "--shadow": "0 20px 40px rgba(0,0,0,0.3)",
+      "--hero-gradient": "linear-gradient(135deg, #020617 0%, #0f172a 100%)"
+    }
+  }
+};
+
 const LOGIN_LOCK_MS = Number(process.env.LOGIN_LOCK_MINUTES || 60) * 60 * 1000;
 const RESET_REQUEST_COOLDOWN_MS = Number(process.env.RESET_REQUEST_COOLDOWN_SECONDS || 60) * 1000;
 const RESET_REQUEST_LIMIT = Number(process.env.RESET_REQUEST_LIMIT_PER_HOUR || 5);
 const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || "dreamhubsadmin").trim().toLowerCase();
 const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "dreamhubsadmin@dreamhubs.local");
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "ChangeThisAdminPassword123!");
 const GOOGLE_CLIENT_ID = String(
   process.env.GOOGLE_CLIENT_ID || "184790123400-pbah8rr03a6csnea4m9m4gsae7vt9bkq.apps.googleusercontent.com"
 ).trim();
@@ -131,7 +315,8 @@ function createInitialDb() {
         quality: "REAL"
       }
     ],
-    providers: []
+    providers: [],
+    settings: { activeTheme: "classic" }
   };
 }
 
@@ -1416,6 +1601,26 @@ async function handleApi(req, res, url) {
     db.sessions = db.sessions.filter((entry) => entry.token !== token);
     await writeDb(db);
     return send(res, 200, { message: "Logged out." });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/appearance") {
+    const db = await readDb();
+    const active = db.settings?.activeTheme || "classic";
+    const theme = THEMES[active] || THEMES.classic;
+    return send(res, 200, { active, theme: theme.vars, themes: Object.keys(THEMES).map(k => ({ id: k, name: THEMES[k].name })) });
+  }
+
+  if (req.method === "PATCH" && url.pathname === "/api/admin/appearance") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const { themeId } = body;
+    if (!THEMES[themeId]) return send(res, 400, { error: "Invalid theme ID." });
+    
+    if (!auth.db.settings) auth.db.settings = {};
+    auth.db.settings.activeTheme = themeId;
+    await writeDb(auth.db);
+    return send(res, 200, { message: "Theme updated globally." });
   }
 
   return send(res, 404, { error: "API route not found." });
