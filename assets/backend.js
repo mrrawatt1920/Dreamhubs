@@ -601,11 +601,12 @@ async function handleAdminPage() {
         <tr>
           <td>${escapeHtml(p.name)}</td>
           <td style="font-size: 0.8rem;">${escapeHtml(p.url)}</td>
+          <td>${p.exchangeRate || 1}</td>
           <td>${p.margin}%</td>
           <td>
-            <div style="display: flex; gap: 5px;">
+            <div style="flex; gap: 5px;">
               <button class="primary-btn mini" style="background: var(--blue);" onclick="adminSyncProvider('${p.id}')">Sync</button>
-              <button class="primary-btn mini" onclick="adminEditProvider('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}', '${escapeHtml(p.url).replace(/'/g, "\\'")}', ${p.margin})">Edit</button>
+              <button class="primary-btn mini" onclick="adminEditProvider('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}', '${escapeHtml(p.url).replace(/'/g, "\\'")}', ${p.exchangeRate}, ${p.margin})">Edit</button>
               <button class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteProvider('${p.id}')">Delete</button>
             </div>
           </td>
@@ -628,6 +629,7 @@ async function handleAdminPage() {
             name: addProviderForm.querySelector("[name='name']").value,
             url: addProviderForm.querySelector("[name='url']").value,
             key: addProviderForm.querySelector("[name='key']").value,
+            exchangeRate: Number(addProviderForm.querySelector("[name='exchangeRate']").value),
             margin: Number(addProviderForm.querySelector("[name='margin']").value)
           })
         });
@@ -639,21 +641,23 @@ async function handleAdminPage() {
     });
   }
 
-  window.adminEditProvider = async (id, name, url, margin) => {
+  window.adminEditProvider = async (id, name, url, exchangeRate, margin) => {
     const newName = prompt("Provider Name:", name);
     if (newName === null) return;
     const newUrl = prompt("API URL:", url);
     if (newUrl === null) return;
     const newKey = prompt("API Key (leave blank to keep current):", "");
+    const newExRate = prompt("Exchange Rate (1 USD = ? INR):", exchangeRate);
+    if (newExRate === null) return;
     const newMargin = prompt("Profit Margin (%):", margin);
     if (newMargin === null) return;
 
     try {
-      const body = { id, name: newName, url: newUrl, margin: Number(newMargin) };
+      const body = { id, name: newName, url: newUrl, exchangeRate: Number(newExRate), margin: Number(newMargin) };
       if (newKey) body.key = newKey;
       await API.request("/api/admin/providers", { method: "PATCH", admin: true, body: JSON.stringify(body) });
       await loadProviders();
-      alert("Provider updated.");
+      alert("Provider updated and prices recalculated!");
     } catch (err) { alert(err.message); }
   };
 
