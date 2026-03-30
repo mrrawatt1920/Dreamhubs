@@ -153,9 +153,9 @@ function normalizeDb(db) {
     resetRequests: Array.isArray(db.resetRequests) ? db.resetRequests : [],
     services: Array.isArray(db.services) ? db.services : [],
     providers: Array.isArray(db.providers)
-      ? db.providers
+      ? db.providers.map(p => ({ ...p, exchangeRate: Number(p.exchangeRate || 1) }))
       : (db.provider && typeof db.provider === "object" && db.provider.url
-          ? [{ id: generateId("pro"), name: "Master Provider", url: db.provider.url, key: db.provider.key, margin: db.provider.margin || 10 }]
+          ? [{ id: generateId("pro"), name: "Master Provider", url: db.provider.url, key: db.provider.key, margin: db.provider.margin || 10, exchangeRate: 1 }]
           : [])
   };
 }
@@ -821,10 +821,11 @@ async function handleApi(req, res, url) {
     const urlStr = String(body.url || "").trim();
     const key = String(body.key || "").trim();
     const margin = Number(body.margin || 10);
+    const exchangeRate = Number(body.exchangeRate || 1);
 
     if (!urlStr || !key) return send(res, 400, { error: "URL and Key are required." });
 
-    const newProvider = { id: generateId("pro"), name, url: urlStr, key, margin, createdAt: nowIso() };
+    const newProvider = { id: generateId("pro"), name, url: urlStr, key, margin, exchangeRate, createdAt: nowIso() };
     auth.db.providers.push(newProvider);
     await writeDb(auth.db);
     return send(res, 201, { message: "Provider added.", provider: newProvider });
@@ -841,16 +842,22 @@ async function handleApi(req, res, url) {
     if (body.name !== undefined) provider.name = String(body.name).trim();
     if (body.url !== undefined) provider.url = String(body.url).trim();
     if (body.key !== undefined) provider.key = String(body.key).trim();
-    if (body.margin !== undefined) {
-      const oldMargin = provider.margin || 0;
-      const newMargin = Number(body.margin);
+    
+    const newMargin = body.margin !== undefined ? Number(body.margin) : provider.margin;
+    const newExRate = body.exchangeRate !== undefined ? Number(body.exchangeRate) : (provider.exchangeRate || 1);
+    
+    if (body.margin !== undefined || body.exchangeRate !== undefined) {
       provider.margin = newMargin;
+      provider.exchangeRate = newExRate;
+      
       // Auto-update services for THIS provider
       auth.db.services.forEach(s => {
         if (s.providerId === id) {
           const originalRate = s.originalRate || s.ratePer1000 || 0;
           s.originalRate = originalRate;
-          s.ratePer1000 = Number((originalRate + (originalRate * (newMargin / 100))).toFixed(4));
+          // IMPORTANT: rate = original_api_rate * exchange_rate * margin
+          const baseInInr = originalRate * newExRate;
+          s.ratePer1000 = Number((baseInInr + (baseInInr * (newMargin / 100))).toFixed(4));
         }
       });
     }
@@ -899,7 +906,9 @@ async function handleApi(req, res, url) {
       data.forEach(service => {
         const id = String(service.service);
         const originalRate = Number(service.rate || 0);
-        const augmentedRate = Number((originalRate + (originalRate * (margin / 100))).toFixed(4));
+        const exRate = Number(provider.exchangeRate || 1);
+        const baseInInr = originalRate * exRate;
+        const augmentedRate = Number((baseInInr + (baseInInr * (margin / 100))).toFixed(4));
         const extName = String(service.name);
         const extDesc = String(service.desc || "");
         const extCat = String(service.category);

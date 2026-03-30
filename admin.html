@@ -229,6 +229,7 @@
                     <tr>
                       <th>Name</th>
                       <th>URL</th>
+                      <th>Exchange Rate</th>
                       <th>Margin (%)</th>
                       <th>Actions</th>
                     </tr>
@@ -246,6 +247,7 @@
                 <label>Provider Name <input type="text" name="name" placeholder="E.g. SMM Provider A" required /></label>
                 <label>API URL <input type="url" name="url" placeholder="https://provider.com/api/v2" required /></label>
                 <label>API Key <input type="password" name="key" placeholder="Enter API Key" required /></label>
+                <label>Exchange Rate (1 USD = ? INR) <input type="number" name="exchangeRate" value="84.00" step="0.01" min="1" required /></label>
                 <label>Profit Margin (%) <input type="number" name="margin" value="10" min="0" max="1000" step="0.01" required /></label>
                 <div style="grid-column: span 2;">
                   <button type="submit" class="primary-btn full">Add Provider</button>
