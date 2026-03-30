@@ -1109,6 +1109,83 @@ async function handleApi(req, res, url) {
     return send(res, 200, { message: `Request ${action}d successfully.`, balance: user.balance });
   }
 
+  if (req.method === "DELETE" && url.pathname === "/api/admin/funds") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const id = String(url.searchParams.get("id") || "");
+    
+    const index = auth.db.fundRequests.findIndex(f => f.id === id);
+    if (index === -1) return send(res, 404, { error: "Fund request not found." });
+    
+    auth.db.fundRequests.splice(index, 1);
+    await writeDb(auth.db);
+    return send(res, 200, { message: "Fund request deleted successfully." });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/tickets/reply") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const { id, message } = body;
+    
+    const ticket = auth.db.tickets.find(t => t.id === id);
+    if (!ticket) return send(res, 404, { error: "Ticket not found." });
+    
+    const user = auth.db.users.find(u => u.id === ticket.userId);
+    if (!user) return send(res, 404, { error: "User not found." });
+    
+    if (!ticket.replies) ticket.replies = [];
+    ticket.replies.push({
+      from: "Admin",
+      message,
+      createdAt: nowIso()
+    });
+    ticket.status = "Answered";
+    
+    // Email alert
+    const transport = createMailTransport();
+    if (transport) {
+      try {
+        await transport.sendMail({
+          from: SMTP_FROM,
+          to: user.email,
+          subject: `Re: ${ticket.subject} - Support Ticket Answered`,
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+              <h2 style="color: #4834d4;">Support Answered</h2>
+              <p>Hello <strong>${user.name}</strong>,</p>
+              <p>The support team has replied to your ticket <strong>#${ticket.id}</strong>.</p>
+              <div style="background: #f9f9f9; padding: 15px; border-left: 4px solid #4834d4; margin: 15px 0;">
+                <em>"${message}"</em>
+              </div>
+              <p>You can view the full conversation in your dashboard.</p>
+              <p>Thank you for choosing DreamHubs!</p>
+            </div>
+          `
+        });
+      } catch (e) {
+        console.error("[Tickets] Email failed:", e.message);
+      }
+    }
+    
+    await writeDb(auth.db);
+    return send(res, 200, { message: "Reply sent successfully." });
+  }
+
+  if (req.method === "PATCH" && url.pathname === "/api/admin/tickets/status") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const { id, status } = body;
+    
+    const ticket = auth.db.tickets.find(t => t.id === id);
+    if (!ticket) return send(res, 404, { error: "Ticket not found." });
+    
+    ticket.status = status;
+    await writeDb(auth.db);
+    return send(res, 200, { message: `Ticket marked as ${status}.` });
+  }
+
   if (req.method === "PATCH" && url.pathname === "/api/admin/categories") {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
