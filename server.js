@@ -1063,6 +1063,7 @@ async function handleApi(req, res, url) {
     if (!auth) return send(res, 401, { error: "Unauthorized" });
     const body = await parseBody(req);
     const { id, action } = body; // action: 'approve' or 'reject'
+    const newAmount = body.amount !== undefined ? Number(body.amount) : null;
     
     const fundRequest = auth.db.fundRequests.find(f => f.id === id);
     if (!fundRequest) return send(res, 404, { error: "Fund request not found." });
@@ -1072,8 +1073,10 @@ async function handleApi(req, res, url) {
     if (!user) return send(res, 404, { error: "User not found." });
     
     if (action === "approve") {
+      const finalAmount = newAmount !== null ? newAmount : Number(fundRequest.amount);
       fundRequest.status = "Approved";
-      user.balance = (Number(user.balance) || 0) + Number(fundRequest.amount);
+      fundRequest.amount = finalAmount; // Update the record with the final approved amount
+      user.balance = (Number(user.balance) || 0) + finalAmount;
       
       // Sending Email Notification
       const transport = createMailTransport();
