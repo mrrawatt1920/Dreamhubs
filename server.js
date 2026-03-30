@@ -803,7 +803,8 @@ async function handleApi(req, res, url) {
       orders: auth.db.orders,
       tickets: auth.db.tickets,
       fundRequests: auth.db.fundRequests,
-      services: auth.db.services
+      services: auth.db.services,
+      providers: auth.db.providers
     });
   }
 
@@ -991,6 +992,14 @@ async function handleApi(req, res, url) {
     
     await writeDb(auth.db);
     return send(res, 200, { message: "Service updated successfully.", service });
+  }
+
+  if (req.method === "DELETE" && url.pathname === "/api/admin/services/all") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    auth.db.services = [];
+    await writeDb(auth.db);
+    return send(res, 200, { message: "All services deleted successfully. You can now re-sync providers." });
   }
 
   if (req.method === "DELETE" && url.pathname === "/api/admin/services") {

@@ -159,7 +159,10 @@
           <article class="card wide" id="services">
             <div class="section-title">
               <h2>Service controls</h2>
-              <span>Catalog</span>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <span>Catalog</span>
+                <button class="primary-btn mini" style="background: #ff4444;" onclick="adminCleanServices()">Delete All Services</button>
+              </div>
             </div>
             <div class="admin-controls-grid" style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
               <div class="control-box">
@@ -189,7 +192,9 @@
             <div class="service-preview-card" style="margin-top: 20px; padding: 15px; border: 1px dashed var(--border); border-radius: 8px; background: rgba(0,0,0,0.02);">
               <div id="admin-service-details" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
                 <div class="detail-item"><small style="color: var(--text-gray);">ID</small><br><strong data-detail-id>...</strong></div>
-                <div class="detail-item"><small style="color: var(--text-gray);">RATE / 1k</small><br><strong data-detail-rate>...</strong></div>
+                <div class="detail-item"><small style="color: var(--text-gray);">SALES RATE</small><br><strong data-detail-rate>...</strong></div>
+                <div class="detail-item"><small style="color: var(--text-gray);">API COST ($)</small><br><strong data-detail-cost>...</strong></div>
+                <div class="detail-item"><small style="color: var(--text-gray);">PROVIDER</small><br><strong data-detail-provider>...</strong></div>
                 <div class="detail-item"><small style="color: var(--text-gray);">MIN / MAX</small><br><strong data-detail-limit>...</strong></div>
                 <div class="detail-item"><small style="color: var(--text-gray);">STATUS</small><br><strong data-detail-status>Ready</strong></div>
               </div>
