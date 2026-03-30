@@ -25,6 +25,7 @@ loadEnvFile();
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
 const PORT = Number(process.env.PORT || 3000);
+const FORCE_LOCAL_DB = String(process.env.FORCE_LOCAL_DB || "").toLowerCase() === "true";
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_HOURS || 168) * 60 * 60 * 1000;
 const RESET_TOKEN_TTL_MS = Number(process.env.RESET_LINK_TTL_MINUTES || 5) * 60 * 1000;
 const LOGIN_MAX_FAILURES = Number(process.env.LOGIN_MAX_FAILURES || 5);
@@ -274,6 +275,11 @@ function loadEnvFile() {
 }
 
 async function ensureDb() {
+  if (useLocalDb || FORCE_LOCAL_DB) {
+    useLocalDb = true;
+    return;
+  }
+
   if (dbCollection) return; // Pooled connection already exists
 
   const uri = String(process.env.MONGODB_URI || "");
@@ -396,17 +402,12 @@ function normalizeDb(db) {
       ? db.providers.map(p => ({ ...p, exchangeRate: Number(p.exchangeRate || 1) }))
       : (db.provider && typeof db.provider === "object" && db.provider.url
           ? [{ id: generateId("pro"), name: "Master Provider", url: db.provider.url, key: db.provider.key, margin: db.provider.margin || 10, exchangeRate: 1 }]
-          : [])
+          : []),
+    settings: (db.settings && typeof db.settings === "object") ? db.settings : { activeTheme: "classic" }
   };
 }
 
-async function writeDb(data) {
-  await dbCollection.replaceOne(
-    { _id: "main_store" },
-    { _id: "main_store", data: normalizeDb(data) },
-    { upsert: true }
-  );
-}
+// NOTE: writeDb is defined above (line ~369) — duplicate removed.
 
 function send(res, status, payload, headers = {}) {
   const isBuffer = Buffer.isBuffer(payload);
@@ -1485,7 +1486,8 @@ async function handleApi(req, res, url) {
 
     const body = await parseBody(req);
     const category = String(body.category || "").trim();
-    const service = String(body.service || "").trim();
+    const serviceId = String(body.serviceId || "").trim();  // API provider's service ID
+    const service = String(body.service || "").trim();       // service name
     const target = String(body.target || "").trim();
     const quantity = Number(body.quantity || 0);
     const ratePer1000 = Number(body.ratePer1000 || 0.42);
@@ -1499,6 +1501,59 @@ async function handleApi(req, res, url) {
     }
 
     const charge = Number(((quantity / 1000) * ratePer1000).toFixed(2));
+
+    // ✅ FIX 1: Check user has enough balance
+    const currentBalance = Number(auth.user.balance) || 0;
+    if (currentBalance < charge) {
+      return send(res, 400, { error: `Insufficient balance. Required: ₹${charge}, Available: ₹${currentBalance.toFixed(2)}` });
+    }
+
+    // ✅ FIX 2: Deduct balance immediately
+    auth.user.balance = Number((currentBalance - charge).toFixed(2));
+
+    let providerOrderId = null;
+    let finalStatus = "Pending";
+
+    // ✅ FIX 3: Forward order to API provider if service has a providerId
+    const svcRecord = auth.db.services.find(s => s.name === service && s.category === category);
+    if (svcRecord && svcRecord.providerId) {
+      const provider = auth.db.providers.find(p => p.id === svcRecord.providerId);
+      if (provider && provider.url && provider.key) {
+        try {
+          const apiServiceId = svcRecord.id; // provider's original service ID
+          const providerBody = new URLSearchParams({
+            key: provider.key,
+            action: "add",
+            service: apiServiceId,
+            link: target,
+            quantity: String(quantity)
+          });
+          const providerResp = await fetch(provider.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: providerBody.toString()
+          });
+          const providerData = await providerResp.json();
+          if (providerData && providerData.order) {
+            providerOrderId = String(providerData.order);
+            finalStatus = "Processing";
+            console.log(`[Order] Provider accepted order. Provider Order ID: ${providerOrderId}`);
+          } else {
+            // Provider returned an error — refund balance
+            auth.user.balance = Number((auth.user.balance + charge).toFixed(2));
+            const providerError = providerData?.error || "Provider rejected the order.";
+            console.error(`[Order] Provider error: ${providerError}`);
+            return send(res, 400, { error: `Order failed: ${providerError}` });
+          }
+        } catch (provErr) {
+          // Network error placing with provider — refund balance
+          auth.user.balance = Number((auth.user.balance + charge).toFixed(2));
+          console.error(`[Order] Provider API call failed: ${provErr.message}`);
+          return send(res, 500, { error: "Could not reach provider. Please try again." });
+        }
+      }
+    }
+
     const orderNumber = auth.db.orders.length + 1;
     const order = {
       id: `DH${String(orderNumber).padStart(4, "0")}`,
@@ -1508,7 +1563,8 @@ async function handleApi(req, res, url) {
       target,
       quantity,
       charge,
-      status: "Pending",
+      status: finalStatus,
+      providerOrderId,   // stored for status checking later
       startCount: 0,
       remains: quantity,
       createdAt: nowIso()
@@ -1516,7 +1572,7 @@ async function handleApi(req, res, url) {
 
     auth.db.orders.unshift(order);
     await writeDb(auth.db);
-    return send(res, 201, { order });
+    return send(res, 201, { order, balance: auth.user.balance });
   }
 
   if (req.method === "GET" && url.pathname === "/api/tickets") {
@@ -1696,4 +1752,3 @@ if (process.env.VERCEL || process.env.AWS_LAMBDA) {
   };
   start();
 }
-
