@@ -5,7 +5,7 @@ const API = {
 
   async syncTheme() {
     try {
-      const { theme } = await this.request("/api/appearance");
+      const { theme } = await this.request("/api/appearance?t=" + Date.now());
       const root = document.documentElement;
       Object.entries(theme).forEach(([key, value]) => {
         root.style.setProperty(key, value);
@@ -510,20 +510,26 @@ async function handleAdminPage() {
       const appearanceSection = document.querySelector("#appearance .stack-list");
       if (appearanceSection) {
         try {
-          const { themes, active } = await API.request("/api/appearance");
+          const { themes, active } = await API.request("/api/appearance?t=" + Date.now());
           appearanceSection.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 15px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 15px;">
               ${themes.map(t => `
                 <div class="theme-card ${t.id === active ? 'active' : ''}" 
                      onclick="adminUpdateTheme('${t.id}')"
-                     style="padding: 10px; border-radius: 10px; border: 2px solid ${t.id === active ? 'var(--accent)' : 'var(--line)'}; cursor: pointer; background: var(--surface-strong); position: relative; transition: 0.2s; box-shadow: var(--shadow);">
-                  <div style="font-weight: 700; font-size: 0.75rem; color: var(--text); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${t.name}</div>
-                  <div style="display: flex; gap: 3px; height: 16px;">
-                    <div style="flex: 1; border-radius: 3px; background: #333;"></div>
-                    <div style="flex: 1; border-radius: 3px; background: #666;"></div>
-                    <div style="flex: 1; border-radius: 3px; background: #999;"></div>
+                     style="padding: 12px; border-radius: 12px; border: 3px solid ${t.id === active ? 'var(--accent)' : 'rgba(0,0,0,0.1)'}; 
+                            cursor: pointer; background: var(--surface-strong); position: relative; transition: 0.2s; box-shadow: var(--shadow);
+                            ${t.id === active ? 'transform: scale(1.05); z-index: 1;' : ''}">
+                  <div style="font-weight: 700; font-size: 0.8rem; color: var(--text); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${t.name}</div>
+                  <div style="display: flex; gap: 4px; height: 24px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(0,0,0,0.1);">
+                    <div style="flex: 1; background: #333;"></div>
+                    <div style="flex: 1; background: #999;"></div>
+                    <div style="flex: 1; background: #4834d4;"></div>
                   </div>
-                  ${t.id === active ? '<div style="position: absolute; top: -6px; right: -6px; background: var(--accent); color: white; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; z-index: 2;">✓</div>' : ''}
+                  ${t.id === active ? `
+                    <div style="position: absolute; top: -10px; right: -10px; background: var(--accent); color: white; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                      ✓
+                    </div>
+                  ` : ''}
                 </div>
               `).join("")}
             </div>
