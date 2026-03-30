@@ -28,7 +28,10 @@
           </label>
           <label>
             Password
-            <input type="password" name="password" placeholder="Enter admin password" required />
+            <div class="password-field">
+              <input type="password" name="password" placeholder="Enter admin password" required />
+              <button type="button" class="toggle-password" onclick="togglePassword(this)">Show</button>
+            </div>
           </label>
           <button class="primary-btn full" type="submit">Secure Login</button>
         </form>

@@ -49,11 +49,17 @@
             </label>
             <label>
               Password
-              <input type="password" name="password" placeholder="Create password" required />
+              <div class="password-field">
+                <input type="password" name="password" placeholder="Create password" required />
+                <button type="button" class="toggle-password" onclick="togglePassword(this)">Show</button>
+              </div>
             </label>
             <label>
               Confirm password
-              <input type="password" name="confirmPassword" placeholder="Confirm password" required />
+              <div class="password-field">
+                <input type="password" name="confirmPassword" placeholder="Confirm password" required />
+                <button type="button" class="toggle-password" onclick="togglePassword(this)">Show</button>
+              </div>
             </label>
             <button type="submit" class="primary-btn full auth-span">Create Account</button>
             <p class="auth-note auth-span" data-register-status aria-live="polite"></p>
