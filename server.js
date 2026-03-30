@@ -1607,6 +1607,7 @@ async function handleApi(req, res, url) {
     const db = await readDb();
     const active = db.settings?.activeTheme || "classic";
     const theme = THEMES[active] || THEMES.classic;
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     return send(res, 200, { active, theme: theme.vars, themes: Object.keys(THEMES).map(k => ({ id: k, name: THEMES[k].name })) });
   }
 
