@@ -853,11 +853,16 @@ async function handleApi(req, res, url) {
       // Auto-update services for THIS provider
       auth.db.services.forEach(s => {
         if (s.providerId === id) {
-          const originalRate = s.originalRate || s.ratePer1000 || 0;
-          s.originalRate = originalRate;
-          // IMPORTANT: rate = original_api_rate * exchange_rate * margin
-          const baseInInr = originalRate * newExRate;
-          s.ratePer1000 = Number((baseInInr + (baseInInr * (newMargin / 100))).toFixed(4));
+          // Use originalRate if exists, otherwise fallback to current ratePer1000
+          const baseRate = (s.originalRate !== undefined && s.originalRate !== null) ? s.originalRate : s.ratePer1000;
+          
+          // Save the baseRate back to originalRate if it wasn't there to prevent compounding in future
+          if (s.originalRate === undefined || s.originalRate === null) s.originalRate = baseRate;
+          
+          // Recalculate: rate = original_api_rate * exchange_rate * (1 + margin/100)
+          const baseInInr = baseRate * newExRate;
+          const marginedPrice = baseInInr + (baseInInr * (newMargin / 100));
+          s.ratePer1000 = Number(marginedPrice.toFixed(4));
         }
       });
     }
@@ -903,10 +908,12 @@ async function handleApi(req, res, url) {
       const otherServices = (auth.db.services || []).filter(s => s.providerId !== providerId);
       const nextServices = [];
       
+      console.log(`[Sync] Starting sync for provider: ${provider.name} (ID: ${providerId})`);
+      console.log(`[Sync] Using Exchange Rate: ${exRate} and Margin: ${margin}%`);
+
       data.forEach(service => {
         const id = String(service.service);
         const originalRate = Number(service.rate || 0);
-        const exRate = Number(provider.exchangeRate || 1);
         const baseInInr = originalRate * exRate;
         const augmentedRate = Number((baseInInr + (baseInInr * (margin / 100))).toFixed(4));
         const extName = String(service.name);
@@ -942,6 +949,8 @@ async function handleApi(req, res, url) {
         }
       });
       
+      console.log(`[Sync] Successfully processed ${nextServices.length} services.`);
+      
       auth.db.services = [...otherServices, ...nextServices];
       await writeDb(auth.db);
       return send(res, 200, { message: `Successfully synced ${nextServices.length} services for ${provider.name}!` });
@@ -961,7 +970,23 @@ async function handleApi(req, res, url) {
     if (body.name !== undefined) service.name = String(body.name).trim();
     if (body.category !== undefined) service.category = String(body.category).trim();
     if (body.desc !== undefined) service.desc = String(body.desc).trim();
-    if (body.ratePer1000 !== undefined) service.ratePer1000 = Number(body.ratePer1000);
+    
+    if (body.ratePer1000 !== undefined) {
+      const newRate = Number(body.ratePer1000);
+      service.ratePer1000 = newRate;
+      
+      // Update originalRate to "back-calculate" the base price based on current provider settings.
+      // This ensures that future global margin/exchange-rate updates respect this new manual price.
+      const provider = auth.db.providers.find(p => p.id === service.providerId);
+      if (provider) {
+        const margin = Number(provider.margin || 0);
+        const exRate = Number(provider.exchangeRate || 1);
+        // originalRate = newRate / (exchangeRate * (1 + margin/100))
+        service.originalRate = Number((newRate / (exRate * (1 + (margin / 100)))).toFixed(4));
+      } else {
+        service.originalRate = newRate;
+      }
+    }
     
     await writeDb(auth.db);
     return send(res, 200, { message: "Service updated successfully.", service });
