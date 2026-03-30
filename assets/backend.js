@@ -430,12 +430,30 @@ async function handleAdminPage() {
             </li>
           `;
         } else {
-          fundList.innerHTML = fundRequests.map((item) => `
-            <li>
-              <strong>Rs ${escapeHtml(item.amount)} • ${escapeHtml(item.status)}</strong>
-              <span>${escapeHtml(item.method)} • ${formatDate(item.createdAt)}</span>
-            </li>
-          `).join("");
+          fundList.innerHTML = fundRequests.map((item) => {
+            const user = data.users.find(u => u.id === item.userId);
+            const userLabel = user ? `${user.username} (${user.email})` : "Unknown User";
+            const isPending = item.status === "Pending";
+            
+            return `
+              <li style="padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                  <div>
+                    <strong>Rs ${escapeHtml(item.amount)} • <span style="color: ${isPending ? '#f39c12' : (item.status === 'Approved' ? '#27ae60' : '#e74c3c')}">${escapeHtml(item.status)}</span></strong><br>
+                    <small style="display: block; margin-top: 4px; color: var(--text-gray);">User: ${escapeHtml(userLabel)}</small>
+                    <small style="display: block; color: var(--text-gray);">Method: ${escapeHtml(item.method)} • TRX: <strong>${escapeHtml(item.reference || 'N/A')}</strong></small>
+                    <small style="display: block; color: var(--text-gray); font-size: 0.75rem;">${formatDate(item.createdAt)}</small>
+                  </div>
+                  ${isPending ? `
+                    <div style="display: flex; gap: 8px;">
+                      <button class="primary-btn mini" style="background: #27ae60;" onclick="adminFundAction('${item.id}', 'approve')">Approve</button>
+                      <button class="primary-btn mini" style="background: #e74c3c;" onclick="adminFundAction('${item.id}', 'reject')">Reject</button>
+                    </div>
+                  ` : ''}
+                </div>
+              </li>
+            `;
+          }).join("");
         }
       }
       const categorySelect = document.querySelector("[data-admin-category-select]");
@@ -1038,8 +1056,38 @@ async function handleFundsPage() {
   await loadFunds();
 
   if (form) {
+    const user = API.getUser();
+    if (user) {
+      const usernameInput = form.querySelector("#fund-username");
+      const emailInput = form.querySelector("#fund-email");
+      if (usernameInput) usernameInput.value = user.username || "";
+      if (emailInput) emailInput.value = user.email || "";
+    }
+
+    const methodSelect = form.querySelector("[data-method-select]");
+    const instructions = {
+      "UPI": document.getElementById("instruction-upi"),
+      "Bank Transfer": document.getElementById("instruction-bank"),
+      "Crypto": document.getElementById("instruction-crypto")
+    };
+    const methodLabel = document.getElementById("method-label");
+
+    if (methodSelect) {
+      methodSelect.addEventListener("change", () => {
+        const selected = methodSelect.value;
+        if (methodLabel) methodLabel.textContent = selected;
+        Object.keys(instructions).forEach(key => {
+          if (instructions[key]) {
+            instructions[key].style.display = (key === selected) ? "block" : "none";
+          }
+        });
+      });
+    }
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const submitButton = form.querySelector("button[type='submit']");
+      submitButton.disabled = true;
       try {
         await API.request("/api/funds", {
           method: "POST",
@@ -1049,10 +1097,14 @@ async function handleFundsPage() {
             reference: form.querySelector("[name='reference']").value
           })
         });
-        form.reset();
+        alert("Payment request submitted! Admin will verify and add funds shortly.");
+        form.querySelector("[name='amount']").value = "";
+        form.querySelector("[name='reference']").value = "";
         await loadFunds();
       } catch (error) {
         alert(error.message);
+      } finally {
+        submitButton.disabled = false;
       }
     });
   }
@@ -1124,6 +1176,22 @@ window.editService = async function(id, currentCategory, currentName, currentRat
     alert(res.message);
     location.reload();
   } catch (error) { alert("Error: " + error.message); }
+};
+
+window.adminFundAction = async function(id, action) {
+  if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+  
+  try {
+    const res = await API.request("/api/admin/funds/action", {
+      method: "POST",
+      admin: true,
+      body: JSON.stringify({ id, action })
+    });
+    alert(res.message);
+    location.reload();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
