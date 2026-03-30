@@ -1,5 +1,15 @@
 const http = require("http");
 const fs = require("fs");
+
+// Stability handlers for production
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Fatal] Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[Fatal] Uncaught Exception:", err);
+});
+
 const fsp = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
@@ -1108,7 +1118,14 @@ async function serveStatic(req, res, url) {
 }
 
 async function start() {
-  await ensureDb();
+  // Database connection background mein start karenge taaki deployment timeout na ho
+  ensureDb().then(() => {
+    console.log("[Database] Connected successfully to MongoDB.");
+  }).catch((err) => {
+    console.error("[Database] Critical Error: Connection failed.", err.message);
+    // Note: We don't exit the process here to allow the server to keep running
+    // for static files even if DB is temporarily down.
+  });
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -1121,13 +1138,17 @@ async function start() {
 
       await serveStatic(req, res, url);
     } catch (error) {
-      send(res, 500, { error: error.message || "Internal server error" });
+      console.error("[Server Error]", error.message);
+      send(res, 500, { error: "Internal server error" });
     }
   });
 
-  server.listen(PORT, () => {
-    console.log(`DreamHubs server running at http://localhost:${PORT}`);
+  // 0.0.0.0 par listen karenge aur port handle karenge
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`[Server] DreamHubs active on port ${PORT}`);
+    console.log(`[Server] Accessible at http://0.0.0.0:${PORT}`);
   });
 }
 
 start();
+
