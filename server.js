@@ -243,8 +243,11 @@ const MIME_TYPES = {
 
 const mailTransport = createMailTransport();
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
-let mongoClient = null;
+
+// [Optimization] Global Connection Caching for Vercel/Serverless
+let cachedMongoClient = null;
 let dbCollection = null;
+let useLocalDb = false;
 
 function loadEnvFile() {
   try {
@@ -271,22 +274,30 @@ function loadEnvFile() {
 }
 
 async function ensureDb() {
-  const uri = String(process.env.MONGODB_URI || "");
-  if (!uri) throw new Error("Missing MONGODB_URI in environment variables.");
+  if (dbCollection) return; // Pooled connection already exists
 
-  if (!mongoClient) {
-    mongoClient = new MongoClient(uri);
-    await mongoClient.connect();
-    const database = mongoClient.db();
-    dbCollection = database.collection("dreamhubs_data");
+  const uri = String(process.env.MONGODB_URI || "");
+  if (!uri) {
+    useLocalDb = true;
+    return;
   }
 
-  const exist = await dbCollection.findOne({ _id: "main_store" });
-  if (!exist) {
-    const initial = createInitialDb();
-    await dbCollection.insertOne({ _id: "main_store", data: initial });
-  } else if (!exist.data) {
-    await dbCollection.replaceOne({ _id: "main_store" }, { _id: "main_store", data: createInitialDb() });
+  try {
+    if (!cachedMongoClient) {
+      cachedMongoClient = new MongoClient(uri);
+      await cachedMongoClient.connect();
+    }
+    const database = cachedMongoClient.db();
+    dbCollection = database.collection("dreamhubs_data");
+
+    // Initialize if needed
+    const exist = await dbCollection.findOne({ _id: "main_store" });
+    if (!exist) {
+      await dbCollection.insertOne({ _id: "main_store", data: createInitialDb() });
+    }
+  } catch (err) {
+    console.error("[Database] Mongo Connection Error:", err.message);
+    useLocalDb = true;
   }
 }
 
@@ -320,7 +331,7 @@ function createInitialDb() {
   };
 }
 
-let useLocalDb = false;
+
 
 async function readDb() {
   if (useLocalDb) {
@@ -1652,37 +1663,37 @@ async function serveStatic(req, res, url) {
   }
 }
 
-async function start() {
-  // Database connection background mein start karenge taaki deployment timeout na ho
-  ensureDb().then(() => {
-    console.log("[Database] Connected successfully to MongoDB.");
-  }).catch((err) => {
-    console.warn("[Database] MongoDB connection failed. Using local JSON DB for this session.");
-    useLocalDb = true;
-  });
+async function serverHandler(req, res) {
+  try {
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    
+    // Ensure DB is ready for every request (uses pooled connection)
+    await ensureDb();
 
-  const server = http.createServer(async (req, res) => {
-    try {
-      const url = new URL(req.url, `http://${req.headers.host}`);
-
-      if (url.pathname.startsWith("/api/")) {
-        await handleApi(req, res, url);
-        return;
-      }
-
-      await serveStatic(req, res, url);
-    } catch (error) {
-      console.error("[Server Error]", error.message);
-      send(res, 500, { error: "Internal server error" });
+    if (url.pathname.startsWith("/api/")) {
+      await handleApi(req, res, url);
+      return;
     }
-  });
 
-  // 0.0.0.0 par listen karenge aur port handle karenge
-  server.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Server] DreamHubs active on port ${PORT}`);
-    console.log(`[Server] Accessible at http://0.0.0.0:${PORT}`);
-  });
+    await serveStatic(req, res, url);
+  } catch (error) {
+    console.error("[Server Error]", error.message);
+    send(res, 500, { error: "Internal server error" });
+  }
 }
 
-start();
+// [Optimization] Export for Vercel Serverless
+if (process.env.VERCEL || process.env.AWS_LAMBDA) {
+  module.exports = serverHandler;
+} else {
+  // [Standard] Run as a regular server for Render, Docker, or Local
+  const start = async () => {
+    const server = http.createServer(serverHandler);
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`[Server] DreamHubs active on port ${PORT}`);
+      console.log(`[Server] Persistent Connection Caching Enabled.`);
+    });
+  };
+  start();
+}
 
