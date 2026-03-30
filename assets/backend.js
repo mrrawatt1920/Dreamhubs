@@ -3,6 +3,24 @@ const API = {
   userKey: "dreamhubs-user",
   adminTokenKey: "dreamhubs-admin-token",
 
+  async syncTheme() {
+    try {
+      const { theme } = await this.request("/api/appearance");
+      const root = document.documentElement;
+      Object.entries(theme).forEach(([key, value]) => {
+        root.style.setProperty(key, value);
+      });
+      // Force light/dark scheme for browser elements
+      if (theme["--bg"].includes("#0") || theme["--bg"].includes("#1")) {
+        root.setAttribute("data-theme", "dark");
+      } else {
+        root.setAttribute("data-theme", "light");
+      }
+    } catch (e) {
+      console.warn("Theme sync failed:", e.message);
+    }
+  },
+
   get token() {
     return localStorage.getItem(this.tokenKey);
   },
@@ -488,6 +506,31 @@ async function handleAdminPage() {
           }).join("");
         }
       }
+
+      const appearanceSection = document.querySelector("#appearance .stack-list");
+      if (appearanceSection) {
+        try {
+          const { themes, active } = await API.request("/api/appearance");
+          appearanceSection.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 15px;">
+              ${themes.map(t => `
+                <div class="theme-card ${t.id === active ? 'active' : ''}" 
+                     onclick="adminUpdateTheme('${t.id}')"
+                     style="padding: 10px; border-radius: 10px; border: 2px solid ${t.id === active ? 'var(--accent)' : 'var(--line)'}; cursor: pointer; background: var(--surface-strong); position: relative; transition: 0.2s; box-shadow: var(--shadow);">
+                  <div style="font-weight: 700; font-size: 0.75rem; color: var(--text); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${t.name}</div>
+                  <div style="display: flex; gap: 3px; height: 16px;">
+                    <div style="flex: 1; border-radius: 3px; background: #333;"></div>
+                    <div style="flex: 1; border-radius: 3px; background: #666;"></div>
+                    <div style="flex: 1; border-radius: 3px; background: #999;"></div>
+                  </div>
+                  ${t.id === active ? '<div style="position: absolute; top: -6px; right: -6px; background: var(--accent); color: white; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; z-index: 2;">✓</div>' : ''}
+                </div>
+              `).join("")}
+            </div>
+          `;
+        } catch {}
+      }
+
       const categorySelect = document.querySelector("[data-admin-category-select]");
       const serviceSelect = document.querySelector("[data-admin-service-select]");
       const detailId = document.querySelector("[data-detail-id]");
@@ -1306,7 +1349,21 @@ window.adminTicketAction = async function(id, status) {
   } catch (error) { alert("Error: " + error.message); }
 };
 
+window.adminUpdateTheme = async function(themeId) {
+  try {
+    const res = await API.request("/api/admin/appearance", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ themeId })
+    });
+    alert(res.message);
+    await API.syncTheme();
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
 document.addEventListener("DOMContentLoaded", async () => {
+  await API.syncTheme();
   await handleRegisterPage();
   await handleLoginPage();
   await handleResetPasswordPage();
