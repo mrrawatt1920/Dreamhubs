@@ -599,15 +599,15 @@ async function handleAdminPage() {
       const { providers } = await API.request("/api/admin/providers", { admin: true });
       providersList.innerHTML = providers.map(p => `
         <tr>
-          <td>${escapeHtml(p.name)}</td>
-          <td style="font-size: 0.8rem;">${escapeHtml(p.url)}</td>
-          <td>${p.exchangeRate || 1}</td>
-          <td>${p.margin}%</td>
+          <td><strong>${escapeHtml(p.name)}</strong></td>
+          <td style="font-size: 0.8rem; color: var(--text-gray);">${escapeHtml(p.url)}</td>
+          <td style="text-align: center; font-weight: bold; color: var(--blue);">1$ = ₹${p.exchangeRate || 1}</td>
+          <td style="text-align: center; font-weight: bold; color: var(--green);">${p.margin}%</td>
           <td>
-            <div style="flex; gap: 5px;">
-              <button class="primary-btn mini" style="background: var(--blue);" onclick="adminSyncProvider('${p.id}')">Sync</button>
-              <button class="primary-btn mini" onclick="adminEditProvider('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}', '${escapeHtml(p.url).replace(/'/g, "\\'")}', ${p.exchangeRate}, ${p.margin})">Edit</button>
-              <button class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteProvider('${p.id}')">Delete</button>
+            <div style="display: flex; gap: 5px; justify-content: center;">
+              <button class="primary-btn mini" style="background: var(--blue);" onclick="adminSyncProvider('${p.id}')" title="Sync Services">Sync</button>
+              <button class="primary-btn mini" onclick="adminEditProvider('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}', '${escapeHtml(p.url).replace(/'/g, "\\'")}', ${p.exchangeRate}, ${p.margin})" title="Edit Settings">Edit</button>
+              <button class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteProvider('${p.id}')" title="Delete Provider">Delete</button>
             </div>
           </td>
         </tr>
