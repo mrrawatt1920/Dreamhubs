@@ -444,8 +444,11 @@ async function handleAdminPage() {
       const detailRate = document.querySelector("[data-detail-rate]");
       const detailLimit = document.querySelector("[data-detail-limit]");
       const detailDesc = document.querySelector("[data-detail-desc]");
+      const detailCost = document.querySelector("[data-detail-cost]");
+      const detailProvider = document.querySelector("[data-detail-provider]");
       
       let servicesData = data.services || [];
+      let providersData = data.providers || [];
 
       function updateAdminServiceDetails() {
         const cat = categorySelect ? categorySelect.value : "";
@@ -457,9 +460,15 @@ async function handleAdminPage() {
           if (detailRate) detailRate.textContent = `₹${Number(selected.ratePer1000).toFixed(4)}`;
           if (detailLimit) detailLimit.textContent = `${selected.min} / ${selected.max}`;
           if (detailDesc) detailDesc.textContent = selected.desc || "No description available.";
+          
+          const provider = providersData.find(p => p.id === selected.providerId);
+          if (detailProvider) detailProvider.textContent = provider ? provider.name : "Manual / Unknown";
+          if (detailCost) detailCost.textContent = selected.originalRate !== undefined ? `$${selected.originalRate}` : "N/A";
         } else {
           if (detailId) detailId.textContent = "...";
           if (detailRate) detailRate.textContent = "...";
+          if (detailCost) detailCost.textContent = "...";
+          if (detailProvider) detailProvider.textContent = "...";
           if (detailLimit) detailLimit.textContent = "...";
           if (detailDesc) detailDesc.textContent = "Select a service to view details.";
         }
@@ -548,6 +557,19 @@ async function handleAdminPage() {
         if (!confirm("Are you sure you want to delete this service?")) return;
         try {
           const res = await API.request(`/api/admin/services?id=${encodeURIComponent(selected.id)}`, {
+            method: "DELETE",
+            admin: true
+          });
+          alert(res.message);
+          location.reload();
+        } catch (error) { alert(error.message); }
+      };
+
+      window.adminCleanServices = async () => {
+        if (!confirm("CRITICAL: Are you sure you want to delete ALL services from your database? This cannot be undone.")) return;
+        if (!confirm("Are you REALLY sure? You will need to re-sync your providers after this.")) return;
+        try {
+          const res = await API.request("/api/admin/services/all", {
             method: "DELETE",
             admin: true
           });
