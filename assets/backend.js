@@ -337,7 +337,11 @@ async function handleAdminPage() {
     return;
   }
 
-  async function loadDashboard() {
+  window.refreshAdminDashboard = async function() {
+    const status = document.querySelector("[data-admin-status]");
+    const gate = document.querySelector("[data-admin-gate]");
+    const panel = document.querySelector("[data-admin-panel]");
+    
     try {
       const data = await API.request("/api/admin/dashboard", { admin: true });
       setStatus(status, `Logged in as ${data.admin.username || data.admin.email}`, "success");
@@ -1179,16 +1183,44 @@ window.editService = async function(id, currentCategory, currentName, currentRat
 };
 
 window.adminFundAction = async function(id, action) {
-  if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+  let amount = null;
+  
+  if (action === "approve") {
+    // Find the request in the current list to get the default amount
+    const fundList = document.querySelector("[data-admin-fund-list]");
+    let currentAmount = "0";
+    if (fundList) {
+      const items = Array.from(fundList.querySelectorAll("li"));
+      const item = items.find(li => li.innerHTML.includes(id));
+      if (item) {
+        const strong = item.querySelector("strong");
+        if (strong) {
+          const match = strong.textContent.match(/Rs ([\d\.]+)/);
+          if (match) currentAmount = match[1];
+        }
+      }
+    }
+    
+    const input = prompt(`Approve this request? You can edit the amount below:`, currentAmount);
+    if (input === null) return; // Cancelled
+    amount = Number(input);
+    if (isNaN(amount) || amount <= 0) return alert("Please enter a valid positive amount.");
+  } else {
+    if (!confirm(`Are you sure you want to reject this request?`)) return;
+  }
   
   try {
     const res = await API.request("/api/admin/funds/action", {
       method: "POST",
       admin: true,
-      body: JSON.stringify({ id, action })
+      body: JSON.stringify({ id, action, amount: amount })
     });
     alert(res.message);
-    location.reload();
+    if (window.refreshAdminDashboard) {
+      await window.refreshAdminDashboard();
+    } else {
+      location.reload();
+    }
   } catch (error) {
     alert("Error: " + error.message);
   }
