@@ -443,11 +443,20 @@ async function handleAdminPage() {
         serviceList.innerHTML = data.services.map(s => `
           <tr>
             <td>${escapeHtml(s.id)}</td>
-            <td style="font-size: 0.8rem;">${escapeHtml(s.category)}</td>
+            <td style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px;">
+              ${escapeHtml(s.category)}
+              <div style="display: flex; gap: 2px;">
+                <button title="Edit Category" class="primary-btn mini" style="padding: 2px 5px; font-size: 10px; background: var(--blue);" onclick="editCategory('${escapeHtml(s.category).replace(/'/g, "\\'")}')">✎</button>
+                <button title="Delete Category" class="primary-btn mini" style="padding: 2px 5px; font-size: 10px; background: #ff4444;" onclick="deleteCategory('${escapeHtml(s.category).replace(/'/g, "\\'")}')">×</button>
+              </div>
+            </td>
             <td>${escapeHtml(s.name)}</td>
             <td>₹${Number(s.ratePer1000).toFixed(4)}</td>
             <td>
-              <button class="primary-btn mini" onclick="editService('${escapeHtml(s.id)}', '${escapeHtml(s.name.replace(/'/g, "\\'"))}', ${s.ratePer1000})">Edit</button>
+              <div style="display: flex; gap: 5px;">
+                <button class="primary-btn mini" onclick="editService('${escapeHtml(s.id)}', '${escapeHtml(s.category).replace(/'/g, "\\'")}', '${escapeHtml(s.name.replace(/'/g, "\\'"))}', ${s.ratePer1000})">Edit</button>
+                <button class="primary-btn mini" style="background: #ff4444;" onclick="deleteService('${escapeHtml(s.id)}')">Delete</button>
+              </div>
             </td>
           </tr>
         `).join("");
@@ -936,7 +945,10 @@ function handleLogout() {
   });
 }
 
-window.editService = async function(id, currentName, currentRate) {
+window.editService = async function(id, currentCategory, currentName, currentRate) {
+  const newCategory = prompt("Enter new category name:", currentCategory);
+  if (newCategory === null) return;
+
   const newName = prompt("Enter new service name:", currentName);
   if (newName === null) return;
   
@@ -949,12 +961,60 @@ window.editService = async function(id, currentName, currentRate) {
       admin: true,
       body: JSON.stringify({
         id,
+        category: newCategory,
         name: newName,
         ratePer1000: Number(newRate)
       })
     });
     alert(res.message);
-    location.reload(); // Refresh to show changes
+    location.reload();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
+window.deleteService = async function(id) {
+  if (!confirm("Are you sure you want to delete this service?")) return;
+
+  try {
+    const res = await API.request(`/api/admin/services?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      admin: true
+    });
+    alert(res.message);
+    location.reload();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
+window.editCategory = async function(oldName) {
+  const newName = prompt("Enter new name for this category:", oldName);
+  if (!newName || newName === oldName) return;
+
+  try {
+    const res = await API.request("/api/admin/categories", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ oldName, newName })
+    });
+    alert(res.message);
+    location.reload();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
+window.deleteCategory = async function(name) {
+  if (!confirm(`Are you sure you want to delete the category "${name}"? This will delete ALL services in this category!`)) return;
+
+  try {
+    const res = await API.request(`/api/admin/categories?name=${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      admin: true
+    });
+    alert(res.message);
+    location.reload();
   } catch (error) {
     alert("Error: " + error.message);
   }
