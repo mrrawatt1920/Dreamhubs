@@ -215,21 +215,45 @@
             </ul>
           </article>
 
-          <article class="card" id="apis">
+          <article class="card wide" id="apis">
             <div class="section-title">
-              <h2>Master Provider API</h2>
-              <span>Sync Settings</span>
+              <h2>API Providers</h2>
+              <span>Master Sync Control</span>
             </div>
-            <form class="order-form" data-admin-provider-form style="margin-top: 1rem;">
-              <label>API URL <input type="url" name="url" placeholder="https://provider.com/api/v2" required /></label>
-              <label>API Key <input type="password" name="key" placeholder="Enter API Key" required /></label>
-              <label>Profit Margin (%) <input type="number" name="margin" value="10" min="0" max="1000" step="0.01" required /></label>
-              <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button type="submit" class="primary-btn">Save Settings</button>
-                <button type="button" class="primary-btn" style="background: var(--blue);" data-admin-provider-sync>Sync Services</button>
+            
+            <div style="margin-top: 1.5rem;">
+              <h3 style="font-size: 0.9rem; color: var(--text-gray); text-transform: uppercase; letter-spacing: 1px;">Current Providers</h3>
+              <div class="admin-table-wrapper" style="margin-top: 0.5rem; max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>URL</th>
+                      <th>Margin (%)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody data-admin-providers-list>
+                    <!-- Providers will be loaded here -->
+                  </tbody>
+                </table>
               </div>
-            </form>
-            <p class="auth-note" data-admin-provider-status aria-live="polite" style="margin-top: 10px;"></p>
+            </div>
+
+            <div style="margin-top: 2rem;">
+              <h3 style="font-size: 0.9rem; color: var(--text-gray); text-transform: uppercase; letter-spacing: 1px;">Add New Provider</h3>
+              <form class="order-form" data-admin-add-provider-form style="margin-top: 0.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <label>Provider Name <input type="text" name="name" placeholder="E.g. SMM Provider A" required /></label>
+                <label>API URL <input type="url" name="url" placeholder="https://provider.com/api/v2" required /></label>
+                <label>API Key <input type="password" name="key" placeholder="Enter API Key" required /></label>
+                <label>Profit Margin (%) <input type="number" name="margin" value="10" min="0" max="1000" step="0.01" required /></label>
+                <div style="grid-column: span 2;">
+                  <button type="submit" class="primary-btn full">Add Provider</button>
+                </div>
+              </form>
+            </div>
+            
+            <p class="auth-note" data-admin-provider-status aria-live="polite" style="margin-top: 15px;"></p>
           </article>
 
           <article class="card" id="appearance">

@@ -130,7 +130,7 @@ function createInitialDb() {
         quality: "REAL"
       }
     ],
-    provider: { url: "", key: "", margin: 10 }
+    providers: []
   };
 }
 
@@ -152,7 +152,11 @@ function normalizeDb(db) {
     loginFailures: Array.isArray(db.loginFailures) ? db.loginFailures : [],
     resetRequests: Array.isArray(db.resetRequests) ? db.resetRequests : [],
     services: Array.isArray(db.services) ? db.services : [],
-    provider: db.provider && typeof db.provider === "object" ? db.provider : { url: "", key: "", margin: 10 }
+    providers: Array.isArray(db.providers)
+      ? db.providers
+      : (db.provider && typeof db.provider === "object" && db.provider.url
+          ? [{ id: generateId("pro"), name: "Master Provider", url: db.provider.url, key: db.provider.key, margin: db.provider.margin || 10 }]
+          : [])
   };
 }
 
@@ -803,53 +807,95 @@ async function handleApi(req, res, url) {
     });
   }
 
-  if (req.method === "GET" && url.pathname === "/api/admin/provider") {
+  if (req.method === "GET" && url.pathname === "/api/admin/providers") {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
-    return send(res, 200, { provider: auth.db.provider });
+    return send(res, 200, { providers: auth.db.providers });
   }
 
-  if (req.method === "POST" && url.pathname === "/api/admin/provider") {
+  if (req.method === "POST" && url.pathname === "/api/admin/providers") {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
     const body = await parseBody(req);
-    const newMargin = Number(body.margin || 0);
+    const name = String(body.name || "New Provider").trim();
+    const urlStr = String(body.url || "").trim();
+    const key = String(body.key || "").trim();
+    const margin = Number(body.margin || 10);
 
-    auth.db.provider.url = String(body.url || "").trim();
-    auth.db.provider.key = String(body.key || "").trim();
-    auth.db.provider.margin = newMargin;
+    if (!urlStr || !key) return send(res, 400, { error: "URL and Key are required." });
 
-    // Auto-update all existing services using their stored originalRate
-    if (Array.isArray(auth.db.services)) {
-      auth.db.services.forEach(service => {
-        const baseRate = Number(service.originalRate || service.ratePer1000 || 0);
-        // If we have originalRate, use it. If not (first time), use current rate as base.
-        const originalRate = service.originalRate || baseRate; 
-        service.originalRate = originalRate;
-        service.ratePer1000 = Number((originalRate + (originalRate * (newMargin / 100))).toFixed(4));
+    const newProvider = { id: generateId("pro"), name, url: urlStr, key, margin, createdAt: nowIso() };
+    auth.db.providers.push(newProvider);
+    await writeDb(auth.db);
+    return send(res, 201, { message: "Provider added.", provider: newProvider });
+  }
+
+  if (req.method === "PATCH" && url.pathname === "/api/admin/providers") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const id = String(body.id || "");
+    const provider = auth.db.providers.find(p => p.id === id);
+    if (!provider) return send(res, 404, { error: "Provider not found." });
+
+    if (body.name !== undefined) provider.name = String(body.name).trim();
+    if (body.url !== undefined) provider.url = String(body.url).trim();
+    if (body.key !== undefined) provider.key = String(body.key).trim();
+    if (body.margin !== undefined) {
+      const oldMargin = provider.margin || 0;
+      const newMargin = Number(body.margin);
+      provider.margin = newMargin;
+      // Auto-update services for THIS provider
+      auth.db.services.forEach(s => {
+        if (s.providerId === id) {
+          const originalRate = s.originalRate || s.ratePer1000 || 0;
+          s.originalRate = originalRate;
+          s.ratePer1000 = Number((originalRate + (originalRate * (newMargin / 100))).toFixed(4));
+        }
       });
     }
 
     await writeDb(auth.db);
-    return send(res, 200, { message: "Provider settings saved and prices updated live!" });
+    return send(res, 200, { message: "Provider updated.", provider });
+  }
+
+  if (req.method === "DELETE" && url.pathname === "/api/admin/providers") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const id = String(url.searchParams.get("id") || "");
+    const index = auth.db.providers.findIndex(p => p.id === id);
+    if (index === -1) return send(res, 404, { error: "Provider not found." });
+
+    auth.db.providers.splice(index, 1);
+    // Optionally delete services associated with this provider
+    auth.db.services = auth.db.services.filter(s => s.providerId !== id);
+    
+    await writeDb(auth.db);
+    return send(res, 200, { message: "Provider and its services removed." });
   }
 
 
   if (req.method === "POST" && url.pathname === "/api/admin/provider/sync") {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
-    const { url: api, key, margin } = auth.db.provider;
-    if (!api || !key) return send(res, 400, { error: "Please save API URL and Key first." });
+    const body = await parseBody(req);
+    const providerId = String(body.providerId || "");
+    const provider = auth.db.providers.find(p => p.id === providerId);
+    if (!provider) return send(res, 400, { error: "Select a valid provider to sync." });
+    
+    const { url: api, key, margin } = provider;
+    if (!api || !key) return send(res, 400, { error: "API URL and Key are required for syncing." });
     
     try {
       const fetchUrl = `${api}?key=${key}&action=services`;
       const response = await fetch(fetchUrl);
       const data = await response.json();
-      if (!Array.isArray(data)) {
-        throw new Error(data.error || "Invalid response from provider.");
-      }
-      const currentMap = new Map((auth.db.services || []).map(s => [s.id, s]));
+      if (!Array.isArray(data)) throw new Error(data.error || "Invalid response from provider.");
+      
+      const currentMap = new Map((auth.db.services || []).filter(s => s.providerId === providerId).map(s => [s.id, s]));
+      const otherServices = (auth.db.services || []).filter(s => s.providerId !== providerId);
       const nextServices = [];
+      
       data.forEach(service => {
         const id = String(service.service);
         const originalRate = Number(service.rate || 0);
@@ -858,7 +904,7 @@ async function handleApi(req, res, url) {
         const extDesc = String(service.desc || "");
         const extCat = String(service.category);
         const extMin = Number(service.min || 1);
-        const extMax = Number(service.max || 1000);
+        const extMax = Number(service.max || 1000000);
         
         const existing = currentMap.get(id);
         if (existing) {
@@ -870,11 +916,12 @@ async function handleApi(req, res, url) {
             ratePer1000: augmentedRate,
             min: extMin,
             max: extMax,
-            desc: existing.desc !== undefined ? existing.desc : extDesc
+            desc: (existing.desc !== undefined && existing.desc !== "") ? existing.desc : extDesc
           });
         } else {
           nextServices.push({
             id,
+            providerId,
             category: extCat,
             name: extName,
             originalRate: originalRate,
@@ -884,11 +931,11 @@ async function handleApi(req, res, url) {
             desc: extDesc
           });
         }
-
       });
-      auth.db.services = nextServices;
+      
+      auth.db.services = [...otherServices, ...nextServices];
       await writeDb(auth.db);
-      return send(res, 200, { message: `Successfully synced ${auth.db.services.length} services!` });
+      return send(res, 200, { message: `Successfully synced ${nextServices.length} services for ${provider.name}!` });
     } catch (e) {
       return send(res, 500, { error: "Failed to sync: " + e.message });
     }
