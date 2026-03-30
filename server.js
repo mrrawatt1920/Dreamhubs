@@ -22,6 +22,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const ENV_FILE = path.join(ROOT, ".env");
 
 loadEnvFile();
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
 const PORT = Number(process.env.PORT || 3000);
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_HOURS || 168) * 60 * 60 * 1000;
@@ -134,10 +135,53 @@ function createInitialDb() {
   };
 }
 
+let useLocalDb = false;
+
 async function readDb() {
-  const doc = await dbCollection.findOne({ _id: "main_store" });
-  const parsed = doc && doc.data ? doc.data : createInitialDb();
-  return normalizeDb(parsed);
+  if (useLocalDb) {
+    try {
+      if (!fs.existsSync(DB_FILE)) {
+        const initial = createInitialDb();
+        await fsp.writeFile(DB_FILE, JSON.stringify(initial, null, 2));
+        return normalizeDb(initial);
+      }
+      const raw = await fsp.readFile(DB_FILE, "utf-8");
+      return normalizeDb(JSON.parse(raw));
+    } catch (e) {
+      console.error("[Local DB] Error reading:", e.message);
+      return normalizeDb(createInitialDb());
+    }
+  }
+
+  try {
+    const doc = await dbCollection.findOne({ _id: "main_store" });
+    const parsed = doc && doc.data ? doc.data : createInitialDb();
+    return normalizeDb(parsed);
+  } catch (e) {
+    console.error("[MongoDB] Connection lost, switching to local DB.");
+    useLocalDb = true;
+    return readDb();
+  }
+}
+
+async function writeDb(db) {
+  if (useLocalDb) {
+    try {
+      await fsp.writeFile(DB_FILE, JSON.stringify(db, null, 2));
+      return;
+    } catch (e) {
+      console.error("[Local DB] Error writing:", e.message);
+      return;
+    }
+  }
+
+  try {
+    await dbCollection.replaceOne({ _id: "main_store" }, { _id: "main_store", data: db }, { upsert: true });
+  } catch (e) {
+    console.error("[MongoDB] Write failed, switching to local DB.");
+    useLocalDb = true;
+    await writeDb(db);
+  }
 }
 
 function normalizeDb(db) {
@@ -1014,6 +1058,54 @@ async function handleApi(req, res, url) {
     return send(res, 200, { message: "Service deleted successfully." });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/admin/funds/action") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const { id, action } = body; // action: 'approve' or 'reject'
+    
+    const fundRequest = auth.db.fundRequests.find(f => f.id === id);
+    if (!fundRequest) return send(res, 404, { error: "Fund request not found." });
+    if (fundRequest.status !== "Pending") return send(res, 400, { error: "Request is already processed." });
+    
+    const user = auth.db.users.find(u => u.id === fundRequest.userId);
+    if (!user) return send(res, 404, { error: "User not found." });
+    
+    if (action === "approve") {
+      fundRequest.status = "Approved";
+      user.balance = (Number(user.balance) || 0) + Number(fundRequest.amount);
+      
+      // Sending Email Notification
+      const transport = createMailTransport();
+      if (transport) {
+        try {
+          await transport.sendMail({
+            from: SMTP_FROM,
+            to: user.email,
+            subject: "Funds Added Successfully - DreamHubs",
+            html: `
+              <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #4834d4;">Funds Added!</h2>
+                <p>Hello <strong>${user.name}</strong>,</p>
+                <p>Your payment request of <strong>₹${fundRequest.amount}</strong> has been approved.</p>
+                <p>Your new balance is now available in your dashboard.</p>
+                <p>Thank you for choosing DreamHubs!</p>
+              </div>
+            `
+          });
+          console.log(`[Funds] Approval email sent to ${user.email}`);
+        } catch (e) {
+          console.error("[Funds] Email failed:", e.message);
+        }
+      }
+    } else {
+      fundRequest.status = "Rejected";
+    }
+    
+    await writeDb(auth.db);
+    return send(res, 200, { message: `Request ${action}d successfully.`, balance: user.balance });
+  }
+
   if (req.method === "PATCH" && url.pathname === "/api/admin/categories") {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
@@ -1279,9 +1371,8 @@ async function start() {
   ensureDb().then(() => {
     console.log("[Database] Connected successfully to MongoDB.");
   }).catch((err) => {
-    console.error("[Database] Critical Error: Connection failed.", err.message);
-    // Note: We don't exit the process here to allow the server to keep running
-    // for static files even if DB is temporarily down.
+    console.warn("[Database] MongoDB connection failed. Using local JSON DB for this session.");
+    useLocalDb = true;
   });
 
   const server = http.createServer(async (req, res) => {
