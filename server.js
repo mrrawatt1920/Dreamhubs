@@ -813,12 +813,27 @@ async function handleApi(req, res, url) {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
     const body = await parseBody(req);
+    const newMargin = Number(body.margin || 0);
+
     auth.db.provider.url = String(body.url || "").trim();
     auth.db.provider.key = String(body.key || "").trim();
-    auth.db.provider.margin = Number(body.margin || 10);
+    auth.db.provider.margin = newMargin;
+
+    // Auto-update all existing services using their stored originalRate
+    if (Array.isArray(auth.db.services)) {
+      auth.db.services.forEach(service => {
+        const baseRate = Number(service.originalRate || service.ratePer1000 || 0);
+        // If we have originalRate, use it. If not (first time), use current rate as base.
+        const originalRate = service.originalRate || baseRate; 
+        service.originalRate = originalRate;
+        service.ratePer1000 = Number((originalRate + (originalRate * (newMargin / 100))).toFixed(4));
+      });
+    }
+
     await writeDb(auth.db);
-    return send(res, 200, { message: "Provider settings saved." });
+    return send(res, 200, { message: "Provider settings saved and prices updated live!" });
   }
+
 
   if (req.method === "POST" && url.pathname === "/api/admin/provider/sync") {
     const auth = await requireAdmin(req);
@@ -851,6 +866,7 @@ async function handleApi(req, res, url) {
             ...existing,
             category: existing.category || extCat,
             name: existing.name || extName,
+            originalRate: originalRate,
             ratePer1000: augmentedRate,
             min: extMin,
             max: extMax,
@@ -861,12 +877,14 @@ async function handleApi(req, res, url) {
             id,
             category: extCat,
             name: extName,
+            originalRate: originalRate,
             ratePer1000: augmentedRate,
             min: extMin,
             max: extMax,
             desc: extDesc
           });
         }
+
       });
       auth.db.services = nextServices;
       await writeDb(auth.db);
