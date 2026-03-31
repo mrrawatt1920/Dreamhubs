@@ -22,23 +22,23 @@
   <body class="panel-body">
     <div class="user-layout">
       <aside class="user-sidebar">
-        <a class="brand" href="index.html">
+        <a class="brand smm-brand" href="index.html">
           <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
         </a>
+        <a class="smm-subbrand" href="about.html">ABOUT US</a>
         <nav class="sidebar-nav">
-          <a href="dashboard.html">Dashboard</a>
-          <a href="new-order.html">New Order</a>
-          <a href="orders.html">Orders</a>
-          <a href="add-funds.html">Add Funds</a>
-          <a href="tickets.html">Tickets</a>
-          <a class="active" href="account.html">Account</a>
+          <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span class="menu-arrow">></span></a>
+          <a href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span class="menu-arrow">></span></a>
+          <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count" data-support-badge hidden>0</span></span><span class="menu-arrow">></span></a>
+          <a href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span class="menu-arrow">></span></a>
+          <a class="active" href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span class="menu-arrow">></span></a>
         </nav>
       </aside>
       <main class="user-main">
         <header class="user-topbar">
           <div>
             <p class="eyebrow">ACCOUNT SETTINGS</p>
-            <h1>Manage profile, security, and theme behavior.</h1>
+            <h1>Manage profile, security, and logout.</h1>
           </div>
         </header>
         <section class="dashboard-grid">
@@ -50,16 +50,17 @@
             <form class="order-form auth-grid" data-account-form>
               <label>
                 Full name
-                <input type="text" name="name" value="Dream Creator" />
+                <input type="text" name="name" value="" />
               </label>
               <label>
                 Username
-                <input type="text" name="username" value="@dreamcreator" readonly />
+                <input type="text" name="username" value="" readonly style="background: var(--bg-soft); cursor: not-allowed;" />
               </label>
               <label>
                 Email
-                <input type="email" name="email" value="creator@example.com" />
+                <input type="email" name="email" value="" />
               </label>
+              <p class="auth-note" data-account-status aria-live="polite"></p>
               <button type="submit" class="primary-btn full auth-span">Save Changes</button>
             </form>
           </article>
@@ -71,6 +72,25 @@
             <p class="hero-text compact">
               Username cannot be changed from account settings. Keep your login email updated so you can access your account without issues.
             </p>
+          </article>
+          <article class="card wide">
+            <div class="section-title">
+              <h2>Session & Logout</h2>
+              <span>Sign out of your account</span>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 1.5rem; font-size: 0.95rem;">
+              You are currently signed in. Logging out will end your session and redirect you to the login page.
+            </p>
+            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+              <div style="flex: 1; min-width: 200px;">
+                <small style="color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: 0.75rem;">Logged in as</small>
+                <p style="margin: 4px 0 0; font-weight: 700; color: var(--text);" data-session-username>—</p>
+                <p style="margin: 2px 0 0; font-size: 0.85rem; color: var(--muted);" data-session-email>—</p>
+              </div>
+              <button class="primary-btn" data-logout style="background: #e74c3c; min-width: 140px;">
+                🚪 Logout
+              </button>
+            </div>
           </article>
         </section>
       </main>

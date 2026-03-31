@@ -333,6 +333,7 @@ function createInitialDb() {
       }
     ],
     providers: [],
+    popularCategories: [],
     settings: { activeTheme: "classic" }
   };
 }
@@ -403,6 +404,7 @@ function normalizeDb(db) {
       : (db.provider && typeof db.provider === "object" && db.provider.url
           ? [{ id: generateId("pro"), name: "Master Provider", url: db.provider.url, key: db.provider.key, margin: db.provider.margin || 10, exchangeRate: 1 }]
           : []),
+    popularCategories: Array.isArray(db.popularCategories) ? db.popularCategories : [],
     settings: (db.settings && typeof db.settings === "object") ? db.settings : { activeTheme: "classic" }
   };
 }
@@ -1155,7 +1157,8 @@ async function handleApi(req, res, url) {
       console.log(`[Sync] Using Exchange Rate: ${exRate} and Margin: ${margin}%`);
 
       data.forEach(service => {
-        const id = String(service.service);
+        const providerServiceId = String(service.service);  // Provider's original numeric ID e.g. "1234"
+        const internalId = `${providerId}_${providerServiceId}`;  // Unique internal ID: "pro_abc123_1234"
         const originalRate = Number(service.rate || 0);
         const baseInInr = originalRate * exRate;
         const augmentedRate = Number((baseInInr + (baseInInr * (margin / 100))).toFixed(4));
@@ -1164,11 +1167,14 @@ async function handleApi(req, res, url) {
         const extCat = String(service.category);
         const extMin = Number(service.min || 1);
         const extMax = Number(service.max || 1000000);
-        
-        const existing = currentMap.get(id);
+
+        const existing = currentMap.get(providerServiceId) || currentMap.get(internalId);
         if (existing) {
           nextServices.push({
             ...existing,
+            id: internalId,                        // ← update to new format if was old
+            providerServiceId: providerServiceId,  // ← provider's numeric ID saved explicitly
+            providerId,
             category: existing.category || extCat,
             name: existing.name || extName,
             originalRate: originalRate,
@@ -1179,7 +1185,8 @@ async function handleApi(req, res, url) {
           });
         } else {
           nextServices.push({
-            id,
+            id: internalId,                        // ← internal unique ID
+            providerServiceId: providerServiceId,  // ← provider's numeric ID e.g. "1234"
             providerId,
             category: extCat,
             name: extName,
@@ -1486,8 +1493,7 @@ async function handleApi(req, res, url) {
 
     const body = await parseBody(req);
     const category = String(body.category || "").trim();
-    const serviceId = String(body.serviceId || "").trim();  // API provider's service ID
-    const service = String(body.service || "").trim();       // service name
+    const service = String(body.service || "").trim();
     const target = String(body.target || "").trim();
     const quantity = Number(body.quantity || 0);
     const ratePer1000 = Number(body.ratePer1000 || 0.42);
@@ -1500,58 +1506,87 @@ async function handleApi(req, res, url) {
       return send(res, 400, { error: "Enter a valid quantity." });
     }
 
+    // 🔍 Find the service record from DB
+    const svcRecord = auth.db.services.find(s => s.name === service && s.category === category);
+
+    // ✅ Validate min/max from the actual service record
+    if (svcRecord) {
+      if (svcRecord.min && quantity < svcRecord.min) {
+        return send(res, 400, { error: `Minimum order quantity is ${svcRecord.min}.` });
+      }
+      if (svcRecord.max && quantity > svcRecord.max) {
+        return send(res, 400, { error: `Maximum order quantity is ${svcRecord.max}.` });
+      }
+    }
+
     const charge = Number(((quantity / 1000) * ratePer1000).toFixed(2));
 
-    // ✅ FIX 1: Check user has enough balance
+    // ✅ Check user has enough balance
     const currentBalance = Number(auth.user.balance) || 0;
     if (currentBalance < charge) {
       return send(res, 400, { error: `Insufficient balance. Required: ₹${charge}, Available: ₹${currentBalance.toFixed(2)}` });
     }
 
-    // ✅ FIX 2: Deduct balance immediately
+    // ✅ Deduct balance immediately (will refund if provider fails)
     auth.user.balance = Number((currentBalance - charge).toFixed(2));
 
     let providerOrderId = null;
     let finalStatus = "Pending";
+    let providerIdStored = null;
 
-    // ✅ FIX 3: Forward order to API provider if service has a providerId
-    const svcRecord = auth.db.services.find(s => s.name === service && s.category === category);
+    // ✅ Forward to API provider if service has a provider linked
     if (svcRecord && svcRecord.providerId) {
       const provider = auth.db.providers.find(p => p.id === svcRecord.providerId);
       if (provider && provider.url && provider.key) {
+        providerIdStored = provider.id;
         try {
-          const apiServiceId = svcRecord.id; // provider's original service ID
+          // ✅ Use providerServiceId (provider's numeric ID like "1234")
+          // Falls back to svcRecord.id for backward compatibility
+          const providerServiceId = svcRecord.providerServiceId || svcRecord.id;
+          console.log(`[Order] Forwarding to provider. Service ID: ${providerServiceId}, Qty: ${quantity}, Link: ${target}`);
+
           const providerBody = new URLSearchParams({
             key: provider.key,
             action: "add",
-            service: apiServiceId,
+            service: providerServiceId,   // ← provider's numeric service ID
             link: target,
             quantity: String(quantity)
           });
+
           const providerResp = await fetch(provider.url, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: providerBody.toString()
           });
+
           const providerData = await providerResp.json();
+
           if (providerData && providerData.order) {
             providerOrderId = String(providerData.order);
             finalStatus = "Processing";
-            console.log(`[Order] Provider accepted order. Provider Order ID: ${providerOrderId}`);
+            console.log(`[Order] ✅ Provider accepted. Provider Order ID: ${providerOrderId}`);
           } else {
-            // Provider returned an error — refund balance
+            // ❌ Provider returned error — REFUND balance
             auth.user.balance = Number((auth.user.balance + charge).toFixed(2));
             const providerError = providerData?.error || "Provider rejected the order.";
-            console.error(`[Order] Provider error: ${providerError}`);
+            console.error(`[Order] ❌ Provider error: ${providerError}`);
+            await writeDb(auth.db);
             return send(res, 400, { error: `Order failed: ${providerError}` });
           }
         } catch (provErr) {
-          // Network error placing with provider — refund balance
+          // ❌ Network error — REFUND balance
           auth.user.balance = Number((auth.user.balance + charge).toFixed(2));
-          console.error(`[Order] Provider API call failed: ${provErr.message}`);
-          return send(res, 500, { error: "Could not reach provider. Please try again." });
+          console.error(`[Order] ❌ Provider API unreachable: ${provErr.message}`);
+          await writeDb(auth.db);
+          return send(res, 500, { error: "Could not reach provider. Your balance was not deducted. Please try again." });
         }
+      } else {
+        // Provider config missing — save as Pending, admin will handle
+        console.warn(`[Order] ⚠️ Provider config missing for service: ${service}. Saving as Pending.`);
       }
+    } else {
+      // No provider linked — manual fulfillment by admin
+      console.log(`[Order] ℹ️ No provider linked for service: ${service}. Saved as Pending for manual fulfillment.`);
     }
 
     const orderNumber = auth.db.orders.length + 1;
@@ -1564,7 +1599,8 @@ async function handleApi(req, res, url) {
       quantity,
       charge,
       status: finalStatus,
-      providerOrderId,   // stored for status checking later
+      providerOrderId,
+      providerId: providerIdStored,
       startCount: 0,
       remains: quantity,
       createdAt: nowIso()
@@ -1689,6 +1725,25 @@ async function handleApi(req, res, url) {
     auth.db.settings.activeTheme = themeId;
     await writeDb(auth.db);
     return send(res, 200, { message: "Theme updated globally." });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/popular-categories") {
+    const db = await readDb();
+    const allCategories = [...new Set((db.services || []).map(s => s.category))];
+    return send(res, 200, {
+      popularCategories: db.popularCategories || [],
+      allCategories
+    });
+  }
+
+  if (req.method === "PATCH" && url.pathname === "/api/admin/popular-categories") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const body = await parseBody(req);
+    const categories = Array.isArray(body.categories) ? body.categories : [];
+    auth.db.popularCategories = categories;
+    await writeDb(auth.db);
+    return send(res, 200, { message: `Popular categories updated (${categories.length} selected).` });
   }
 
   return send(res, 404, { error: "API route not found." });
