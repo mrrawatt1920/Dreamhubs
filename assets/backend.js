@@ -360,8 +360,6 @@ async function handleResetPasswordPage() {
 async function handleAdminPage() {
   const form = document.querySelector("[data-admin-login-form]");
   const status = document.querySelector("[data-admin-status]");
-  const gate = document.querySelector("[data-admin-gate]");
-  const panel = document.querySelector("[data-admin-panel]");
   if (!form || !status) {
     return;
   }
@@ -374,14 +372,6 @@ async function handleAdminPage() {
     try {
       const data = await API.request("/api/admin/dashboard", { admin: true });
       setStatus(status, `Logged in as ${data.admin.username || data.admin.email}`, "success");
-      if (gate) {
-        gate.hidden = true;
-        gate.style.display = "none";
-      }
-      if (panel) {
-        panel.hidden = false;
-        panel.style.display = "";
-      }
       setText("[data-admin-users]", String(data.stats.users));
       setText("[data-admin-orders]", String(data.stats.orders));
       setText("[data-admin-tickets]", String(data.stats.tickets));
@@ -390,7 +380,7 @@ async function handleAdminPage() {
       const ordersBody = document.querySelector(".data-table tbody");
       const ordersEmpty = document.querySelector("[data-admin-orders-empty]");
       if (ordersBody) {
-        const orders = data.orders.slice(0, 5);
+        const orders = data.orders;
         if (!orders.length) {
           ordersBody.innerHTML = "";
           if (ordersEmpty) {
@@ -414,7 +404,7 @@ async function handleAdminPage() {
 
       const ticketList = document.querySelector("#tickets .stack-list");
       if (ticketList) {
-        const tickets = data.tickets.slice(0, 5);
+        const tickets = data.tickets;
         if (!tickets.length) {
           ticketList.innerHTML = `<li><strong>No tickets found</strong><span>There are no support tickets right now.</span></li>`;
         } else {
@@ -447,7 +437,7 @@ async function handleAdminPage() {
 
       const userList = document.querySelector("[data-admin-user-list]");
       if (userList) {
-        const users = data.users.slice(0, 6);
+        const users = data.users;
         if (!users.length) {
           userList.innerHTML = `
             <li>
@@ -467,7 +457,7 @@ async function handleAdminPage() {
 
       const fundList = document.querySelector("[data-admin-fund-list]");
       if (fundList) {
-        const fundRequests = data.fundRequests.slice(0, 6);
+        const fundRequests = data.fundRequests;
         if (!fundRequests.length) {
           fundList.innerHTML = `
             <li>
@@ -677,18 +667,34 @@ async function handleAdminPage() {
         } catch (error) { alert(error.message); }
       };
 
+      // ── Popular Categories Checkboxes ──
+      const popularBox = document.getElementById("popular-categories-checkboxes");
+      if (popularBox) {
+        try {
+          const popData = await API.request("/api/popular-categories");
+          const allCats = popData.allCategories || [];
+          const selected = popData.popularCategories || [];
+
+          if (!allCats.length) {
+            popularBox.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;">No categories found. Sync a provider first from the API Providers section.</p>`;
+          } else {
+            popularBox.innerHTML = allCats.map(cat => `
+              <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--bg-soft);">
+                <input type="checkbox" value="${escapeHtml(cat)}"
+                       ${selected.includes(cat) ? "checked" : ""}
+                       style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
+                <span style="font-size:0.9rem;color:var(--text);">${escapeHtml(cat)}</span>
+              </label>
+            `).join("");
+          }
+        } catch {
+          if (popularBox) popularBox.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;">Login as admin to manage popular categories.</p>`;
+        }
+      }
 
     } catch (error) {
       API.clearAdminSession();
       setStatus(status, "Admin login required.", "info");
-      if (gate) {
-        gate.hidden = false;
-        gate.style.display = "";
-      }
-      if (panel) {
-        panel.hidden = true;
-        panel.style.display = "none";
-      }
     }
   }
 
@@ -835,6 +841,51 @@ async function handlePanelUser() {
 
   setText("[data-username]", user.username);
   setText("[data-balance]", `Rs ${Number(user.balance || 0).toFixed(2)}`);
+}
+
+async function loadPopularCategories() {
+  const container = document.querySelector("[data-popular-categories]");
+  if (!container) return;
+
+  try {
+    const [popData, svcData] = await Promise.all([
+      API.request("/api/popular-categories"),
+      API.request("/api/services")
+    ]);
+
+    const popular = popData.popularCategories || [];
+    const services = svcData.services || [];
+    const badges = ["Trending", "Hot", "Popular", "Top Pick"];
+
+    if (!popular.length) {
+      container.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:10px 0;">No popular categories set. Admin will update this soon.</p>`;
+      return;
+    }
+
+    container.innerHTML = popular.map((cat, i) => {
+      const catServices = services.filter(s => s.category === cat);
+      const icon = cat.replace(/[^A-Za-z ]/g, "").trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join("");
+      const badge = badges[i] || "Popular";
+      const serviceCount = catServices.length;
+      const minRate = catServices.length ? Math.min(...catServices.map(s => s.ratePer1000)) : 0;
+
+      return `
+        <article class="recent-order-card" style="cursor:pointer;" onclick="window.location.href='new-order.html'">
+          <div class="recent-order-top">
+            <div class="recent-order-id"><span class="doc-icon">${escapeHtml(icon)}</span><span>${escapeHtml(cat)}</span></div>
+            <span class="complete-pill">${badge}</span>
+          </div>
+          <div class="recent-order-body">
+            <div class="order-row"><span>Services:</span><span class="value">${serviceCount} available</span></div>
+            <div class="order-row"><span>Starting from:</span><span class="value">₹${minRate > 0 ? minRate.toFixed(2) : "—"} / 1000</span></div>
+            <div class="order-row"><span>Action:</span><span class="value" style="color:var(--accent);">Click to order →</span></div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  } catch {
+    container.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:10px 0;">Could not load categories.</p>`;
+  }
 }
 
 async function handleOrderPage() {
@@ -1229,12 +1280,25 @@ async function handleAccountPage() {
     return;
   }
 
+  // Fill profile form fields from real user data
   form.querySelector("[name='name']").value = user.name || "";
   form.querySelector("[name='username']").value = user.username || "";
   form.querySelector("[name='email']").value = user.email || "";
 
+  // Fill session info in logout card
+  const sessionUsername = document.querySelector("[data-session-username]");
+  const sessionEmail = document.querySelector("[data-session-email]");
+  if (sessionUsername) sessionUsername.textContent = "@" + (user.username || "—");
+  if (sessionEmail) sessionEmail.textContent = user.email || "—";
+
+  const statusEl = document.querySelector("[data-account-status]");
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submitBtn = form.querySelector("button[type='submit']");
+    submitBtn.disabled = true;
+    if (statusEl) setStatus(statusEl, "Saving changes...", "info");
+
     try {
       const data = await API.request("/api/me", {
         method: "PATCH",
@@ -1244,9 +1308,15 @@ async function handleAccountPage() {
         })
       });
       API.setSession(data);
-      alert("Profile updated.");
+
+      // Update session info card with new email
+      if (sessionEmail && data.user) sessionEmail.textContent = data.user.email || "—";
+
+      if (statusEl) setStatus(statusEl, "✅ Profile updated successfully!", "success");
     } catch (error) {
-      alert(error.message);
+      if (statusEl) setStatus(statusEl, "❌ " + error.message, "error");
+    } finally {
+      submitBtn.disabled = false;
     }
   });
 }
@@ -1265,6 +1335,29 @@ function handleLogout() {
     });
   });
 }
+
+window.adminSavePopularCategories = async function() {
+  const popularBox = document.getElementById("popular-categories-checkboxes");
+  const statusEl = document.getElementById("popular-categories-status");
+
+  if (!popularBox) return;
+
+  const checked = Array.from(popularBox.querySelectorAll("input[type='checkbox']:checked"))
+    .map(cb => cb.value);
+
+  if (statusEl) setStatus(statusEl, "Saving...", "info");
+
+  try {
+    const res = await API.request("/api/admin/popular-categories", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ categories: checked })
+    });
+    if (statusEl) setStatus(statusEl, "✅ " + res.message, "success");
+  } catch (err) {
+    if (statusEl) setStatus(statusEl, "❌ " + err.message, "error");
+  }
+};
 
 window.editService = async function(id, currentCategory, currentName, currentRate) {
   // Keeping this for backward compatibility if needed, but admin panels uses adminEditService now
@@ -1383,6 +1476,32 @@ window.adminUpdateTheme = async function(themeId) {
   } catch (error) { alert("Error: " + error.message); }
 };
 
+async function updateSupportBadge() {
+  // Only run if user is logged in
+  if (!API.token) return;
+  try {
+    const data = await API.request("/api/tickets");
+    // Count tickets that are Open or Answered (active — not Closed)
+    const activeCount = (data.tickets || []).filter(
+      t => t.status === "Open" || t.status === "Answered" || t.status === "In Progress"
+    ).length;
+
+    document.querySelectorAll("[data-support-badge]").forEach(badge => {
+      if (activeCount > 0) {
+        badge.textContent = activeCount;
+        badge.removeAttribute("hidden");
+      } else {
+        badge.setAttribute("hidden", "");
+      }
+    });
+  } catch {
+    // If not logged in or error, just hide badge
+    document.querySelectorAll("[data-support-badge]").forEach(badge => {
+      badge.setAttribute("hidden", "");
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   await API.syncTheme();
   await handleRegisterPage();
@@ -1395,4 +1514,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   await handleFundsPage();
   await handleAccountPage();
   handleLogout();
+  await updateSupportBadge();
+  await loadPopularCategories();
 });
