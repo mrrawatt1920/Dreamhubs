@@ -1051,6 +1051,48 @@ async function handleApi(req, res, url) {
     });
   }
 
+  if (req.method === "PATCH" && url.pathname === "/api/admin/users/fund") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+
+    const body = await parseBody(req);
+    const userId = String(body.userId || "").trim();
+    const balance = Number(body.balance);
+
+    if (!userId) return send(res, 400, { error: "User ID is required." });
+    if (!Number.isFinite(balance) || balance < 0) {
+      return send(res, 400, { error: "Balance must be a valid number (0 or more)." });
+    }
+
+    const user = auth.db.users.find((entry) => entry.id === userId);
+    if (!user) return send(res, 404, { error: "User not found." });
+
+    user.balance = Number(balance.toFixed(2));
+    await writeDb(auth.db);
+    return send(res, 200, { message: "User fund updated successfully.", user: sanitizeUser(user) });
+  }
+
+  if (req.method === "DELETE" && url.pathname === "/api/admin/users") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+
+    const userId = String(url.searchParams.get("id") || "").trim();
+    if (!userId) return send(res, 400, { error: "User ID is required." });
+
+    const userIndex = auth.db.users.findIndex((entry) => entry.id === userId);
+    if (userIndex === -1) return send(res, 404, { error: "User not found." });
+
+    auth.db.users.splice(userIndex, 1);
+    auth.db.sessions = auth.db.sessions.filter((entry) => entry.userId !== userId);
+    auth.db.passwordResetTokens = auth.db.passwordResetTokens.filter((entry) => entry.userId !== userId);
+    auth.db.fundRequests = auth.db.fundRequests.filter((entry) => entry.userId !== userId);
+    auth.db.orders = auth.db.orders.filter((entry) => entry.userId !== userId);
+    auth.db.tickets = auth.db.tickets.filter((entry) => entry.userId !== userId);
+
+    await writeDb(auth.db);
+    return send(res, 200, { message: "User deleted successfully." });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/admin/providers") {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
