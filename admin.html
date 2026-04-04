@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -12,9 +12,41 @@
     />
     <link rel="stylesheet" href="assets/styles.css" />
     <link rel="icon" href="assets/icon.png">
-  </head>
+    <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-MX4VTG8NTL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-MX4VTG8NTL');
+  </script>
+</head>
   <body class="admin-body">
-    <div class="admin-layout">
+    <!-- Admin login gate -->
+    <section class="admin-gate" data-admin-gate>
+      <div class="auth-card admin-login-card">
+        <p class="eyebrow">ADMIN LOGIN</p>
+        <h2>Secure access to DreamHubs control</h2>
+        <form class="order-form" data-admin-login-form>
+          <label>
+            Admin username or email
+            <input type="text" name="identifier" placeholder="Enter admin username or email" required />
+          </label>
+          <label>
+            Password
+            <div class="password-field">
+              <input type="password" name="password" placeholder="Enter admin password" required />
+              <button type="button" class="toggle-password" onclick="togglePassword(this)">Show</button>
+            </div>
+          </label>
+          <button class="primary-btn full" type="submit">Secure Login</button>
+          <p class="auth-note" data-admin-status aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Admin panel (visible after login) -->
+    <div class="admin-layout" data-admin-panel hidden>
       <aside class="sidebar">
         <a class="brand" href="index.html">
           <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
@@ -37,20 +69,6 @@
           <div>
             <p class="eyebrow">ADMIN PANEL</p>
             <h1>Operations control center</h1>
-          </div>
-          <div class="admin-login-box">
-            <form class="order-form" data-admin-login-form>
-              <label>
-                Admin username or email
-                <input type="text" name="identifier" placeholder="Enter admin username or email" required />
-              </label>
-              <label>
-                Password
-                <input type="password" name="password" placeholder="Enter admin password" required />
-              </label>
-              <button class="primary-btn" type="submit">Secure Login</button>
-            </form>
-            <p class="auth-note" data-admin-status aria-live="polite"></p>
           </div>
         </header>
 
@@ -152,7 +170,7 @@
                 <h2>Service controls</h2>
                 <span>Catalog</span>
               </div>
-              <button class="primary-btn" style="background: #ff4444; padding: 10px 20px;" onclick="adminCleanServices()">⚠️ Delete All Services (Cleanup)</button>
+              <button class="primary-btn" style="background: #ff4444; padding: 10px 20px;" onclick="adminCleanServices()">âš ï¸ Delete All Services (Cleanup)</button>
             </div>
             <div class="admin-controls-grid" style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
               <div class="control-box">
@@ -161,8 +179,8 @@
                   <select class="smm-select" data-admin-category-select style="flex: 1; margin: 0;">
                     <option value="">Loading categories...</option>
                   </select>
-                  <button title="Rename Category" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditCategory()">✎</button>
-                  <button title="Delete Category" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteCategory()">×</button>
+                  <button title="Rename Category" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditCategory()">âœŽ</button>
+                  <button title="Delete Category" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteCategory()">Ã—</button>
                 </div>
               </div>
               
@@ -172,8 +190,8 @@
                   <select class="smm-select" data-admin-service-select style="flex: 1; margin: 0;">
                     <option value="">Select a category first</option>
                   </select>
-                  <button title="Edit Service" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditService()">✎</button>
-                  <button title="Delete Service" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteService()">×</button>
+                  <button title="Edit Service" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditService()">âœŽ</button>
+                  <button title="Delete Service" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteService()">Ã—</button>
                 </div>
               </div>
             </div>
@@ -209,7 +227,7 @@
               <p style="color: var(--muted); font-size: 0.85rem;">Loading categories...</p>
             </div>
             <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-              <button class="primary-btn" onclick="adminSavePopularCategories()" style="padding: 10px 24px;">💾 Save Selection</button>
+              <button class="primary-btn" onclick="adminSavePopularCategories()" style="padding: 10px 24px;">ðŸ’¾ Save Selection</button>
               <p class="auth-note" id="popular-categories-status" aria-live="polite" style="margin: 0;"></p>
             </div>
           </article>
@@ -287,3 +305,5 @@
     <script src="assets/backend.js"></script>
   </body>
 </html>
+
+
