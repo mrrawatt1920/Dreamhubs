@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -12,20 +12,17 @@
     />
     <link rel="stylesheet" href="assets/styles.css" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-  </head>
-  <body data-google-client-id="184790123400-pbah8rr03a6csnea4m9m4gsae7vt9bkq.apps.googleusercontent.com">
-    <div class="auth-shell">
-      <section class="auth-visual">
-        <a class="brand" href="index.html">
-          <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
-        </a>
-        <p class="eyebrow">WELCOME BACK</p>
-        <h1>Sign in and keep every campaign in one place.</h1>
-        <p class="hero-text">
-          Orders, wallet, support tickets, and settings are grouped into a
-          single smooth panel flow.
-        </p>
-      </section>
+    <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-MX4VTG8NTL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-MX4VTG8NTL');
+  </script>
+</head>
+  <body class="auth-single" data-google-client-id="184790123400-pbah8rr03a6csnea4m9m4gsae7vt9bkq.apps.googleusercontent.com">
+    <div class="auth-shell auth-single-shell">
       <section class="auth-card">
         <div class="theme-switcher" role="group" aria-label="Theme switcher">
           <button class="theme-btn" data-theme-choice="light">Light</button>
@@ -35,15 +32,8 @@
         <div class="auth-box">
           <p class="eyebrow">LOGIN</p>
           <h2>Access your DreamHubs panel</h2>
-          <div class="order-form">
-            <div data-google-signin></div>
-            <p class="auth-note" data-google-status aria-live="polite"></p>
-          </div>
+          <div class="order-form"><div data-google-signin></div><p class="auth-note" data-google-status aria-live="polite"></p></div>
           <form class="order-form" data-login-form>
-            <div class="order-row">
-              <span>Google login</span>
-              <span class="value">Use the official Google popup to continue</span>
-            </div>
             <label>
               Email or username
               <input type="text" name="emailOrUsername" placeholder="Enter your email or username" required />
@@ -59,17 +49,9 @@
             <p class="auth-note" data-login-status aria-live="polite"></p>
           </form>
           <div class="auth-meta">
-            <button type="button" class="auth-link-btn" data-forgot-toggle>Forgot password?</button>
+            <a href="forgot-password.html">Forgot password?</a>
             <a href="register.html">Create account</a>
           </div>
-          <form class="order-form" data-forgot-form hidden>
-            <label>
-              Account email
-              <input type="email" name="forgotEmail" placeholder="Enter your account email" required />
-            </label>
-            <button type="submit" class="ghost-btn full">Send reset link</button>
-            <p class="auth-note" data-forgot-message aria-live="polite"></p>
-          </form>
         </div>
       </section>
     </div>
@@ -77,3 +59,5 @@
     <script src="assets/backend.js"></script>
   </body>
 </html>
+
+
