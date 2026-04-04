@@ -357,21 +357,59 @@ async function handleResetPasswordPage() {
   });
 }
 
-async function handleAdminPage() {
-  const form = document.querySelector("[data-admin-login-form]");
-  const status = document.querySelector("[data-admin-status]");
+async function handleForgotPage() {
+  const form = document.querySelector("[data-forgot-page-form]");
+  const status = document.querySelector("[data-forgot-page-status]");
   if (!form || !status) {
     return;
   }
 
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    setStatus(status, "Sending reset link...", "info");
+    try {
+      const data = await API.request("/api/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: form.querySelector("[name='email']").value
+        })
+      });
+      setStatus(status, data.message || "If this user's email exists, we have sent a reset link.", "success");
+      form.reset();
+    } catch (error) {
+      setStatus(status, error.message, "error");
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+}
+
+async function handleAdminPage() {
+  const form = document.querySelector("[data-admin-login-form]");
+  const status = document.querySelector("[data-admin-status]");
+  const gate = document.querySelector("[data-admin-gate]");
+  const panel = document.querySelector("[data-admin-panel]");
+  if (!form || !status) {
+    return;
+  }
+
+  const showGate = () => {
+    if (panel) panel.setAttribute("hidden", "");
+    if (gate) gate.removeAttribute("hidden");
+  };
+
+  const showPanel = () => {
+    if (gate) gate.setAttribute("hidden", "");
+    if (panel) panel.removeAttribute("hidden");
+  };
+
   window.refreshAdminDashboard = async function() {
-    const status = document.querySelector("[data-admin-status]");
-    const gate = document.querySelector("[data-admin-gate]");
-    const panel = document.querySelector("[data-admin-panel]");
-    
     try {
       const data = await API.request("/api/admin/dashboard", { admin: true });
       setStatus(status, `Logged in as ${data.admin.username || data.admin.email}`, "success");
+      showPanel();
       setText("[data-admin-users]", String(data.stats.users));
       setText("[data-admin-orders]", String(data.stats.orders));
       setText("[data-admin-tickets]", String(data.stats.tickets));
@@ -447,9 +485,20 @@ async function handleAdminPage() {
           `;
         } else {
           userList.innerHTML = users.map((user) => `
-            <li>
-              <strong>${escapeHtml(user.username)}</strong>
-              <span>${escapeHtml(user.email)}</span>
+            <li style="padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                <div>
+                  <strong>${escapeHtml(user.name || user.username || "Unknown User")}</strong>
+                  <span style="display: block;">@${escapeHtml(user.username || "unknown")}</span>
+                  <small style="display: block; color: var(--text-gray);">${escapeHtml(user.email || "No email")}</small>
+                  <small style="display: block; color: var(--text-gray);">Login: <strong>${user.provider === "google" ? "Google" : "Normal"}</strong></small>
+                  <small style="display: block; color: var(--text-gray);">Total Fund: <strong>Rs ${Number(user.balance || 0).toFixed(2)}</strong></small>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 115px;">
+                  <button class="primary-btn mini" style="background: var(--blue);" onclick="adminEditUserFund('${escapeHtml(user.id)}', ${Number(user.balance || 0)})">Edit Fund</button>
+                  <button class="primary-btn mini" style="background: #e74c3c;" onclick="adminDeleteUser('${escapeHtml(user.id)}', '${escapeHtml(user.username || user.email || "user").replace(/'/g, "\\'")}')">Delete User</button>
+                </div>
+              </div>
             </li>
           `).join("");
         }
@@ -693,6 +742,7 @@ async function handleAdminPage() {
       }
 
     } catch (error) {
+      showGate();
       API.clearAdminSession();
       setStatus(status, "Admin login required.", "info");
     }
@@ -711,6 +761,7 @@ async function handleAdminPage() {
       API.setAdminSession(data);
       form.reset();
       await window.refreshAdminDashboard();
+      await loadProviders();
     } catch (error) {
       setStatus(status, error.message, "error");
     }
@@ -810,8 +861,12 @@ async function handleAdminPage() {
     } catch (err) { setStatus(providerStatus, err.message, "error"); }
   };
 
-  await loadProviders();
-  await window.refreshAdminDashboard();
+  if (API.adminToken) {
+    await window.refreshAdminDashboard();
+    await loadProviders();
+  } else {
+    showGate();
+  }
 }
 
 async function ensureAuth() {
@@ -1435,6 +1490,45 @@ window.adminDeleteFundRequest = async function(id) {
   } catch (error) { alert("Error: " + error.message); }
 };
 
+window.adminEditUserFund = async function(userId, currentBalance) {
+  const input = prompt("Enter new total fund amount for this user:", String(Number(currentBalance || 0)));
+  if (input === null) return;
+
+  const nextBalance = Number(input);
+  if (Number.isNaN(nextBalance) || nextBalance < 0) {
+    alert("Please enter a valid amount (0 or more).");
+    return;
+  }
+
+  try {
+    const res = await API.request("/api/admin/users/fund", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ userId, balance: nextBalance })
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
+window.adminDeleteUser = async function(userId, userLabel) {
+  if (!confirm(`Delete user ${userLabel}? This action cannot be undone.`)) return;
+  if (!confirm("Are you fully sure? User account and related records will be removed.")) return;
+
+  try {
+    const res = await API.request(`/api/admin/users?id=${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      admin: true
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
 window.adminTicketReply = async function(id) {
   const message = prompt("Enter your reply to the user:");
   if (!message) return;
@@ -1507,6 +1601,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await handleRegisterPage();
   await handleLoginPage();
   await handleResetPasswordPage();
+  await handleForgotPage();
   await handleAdminPage();
   await handlePanelUser();
   await handleOrderPage();
