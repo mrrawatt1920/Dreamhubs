@@ -25,7 +25,7 @@
     <div class="user-layout smm-layout">
       <aside class="user-sidebar">
         <a class="brand smm-brand" href="index.html">
-          <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
+          <img src="assets/logo.svg" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
         </a>
         <a class="smm-subbrand" href="about.html">ABOUT US</a>
         <nav class="sidebar-nav">
@@ -56,6 +56,10 @@
                   <strong data-balance>Rs 0.00</strong>
                 </div>
                 <div class="summary-mini">
+                  <span>Total Spend</span>
+                  <strong data-total-spend>Rs 0.00</strong>
+                </div>
+                <div class="summary-mini">
                   <span>Your Orders</span>
                   <strong data-order-count>0</strong>
                 </div>
@@ -64,22 +68,39 @@
           </section>
 
           <section class="smm-grid">
+            <div>
             <div class="smm-card">
               <div class="dual-tabs">
                 <button type="button">New Order</button>
-                <button class="active" type="button">Subscription</button>
+                <button class="active" type="button">Popular Categories</button>
               </div>
               <div class="filter-row">
-                <span class="filter-chip"><span class="chip-dot">A</span>All</span>
-                <span class="filter-chip red"><span class="chip-dot">I</span>Instagram Services</span>
-                <span class="filter-chip"><span class="chip-dot">Y</span>YouTube Services</span>
-                <span class="filter-chip blue"><span class="chip-dot">T</span>Telegram Services</span>
+                <a class="filter-chip" href="new-order.html?app=all"><span class="chip-dot">A</span>All Services</a>
+                <a class="filter-chip red" href="new-order.html?app=instagram"><span class="chip-dot">I</span>Instagram</a>
+                <a class="filter-chip" href="new-order.html?app=youtube"><span class="chip-dot">Y</span>YouTube</a>
+                <a class="filter-chip blue" href="new-order.html?app=telegram"><span class="chip-dot">T</span>Telegram</a>
               </div>
               <input class="smm-search" type="text" placeholder="Search services" />
               <label class="label-lite">POPULAR CATEGORIES</label>
               <div class="recent-list" data-popular-categories>
                 <p style="color:var(--muted);font-size:0.85rem;padding:10px 0;">Loading popular categories...</p>
               </div>
+            </div>
+
+            <div class="smm-card" data-referral-card hidden style="margin-top:16px;">
+              <label class="label-lite">REFERRAL / AFFILIATE</label>
+              <div class="recent-order-body">
+                <div class="order-row"><span>Your code:</span><span class="value" data-referral-code>—</span></div>
+                <div class="order-row"><span>Link:</span><span class="value" data-referral-link style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">—</span></div>
+                <div class="order-row"><span>Visits:</span><span class="value" data-referral-visits>0</span></div>
+                <div class="order-row"><span>Registrations:</span><span class="value" data-referral-registrations>0</span></div>
+                <div class="order-row"><span>Conversion:</span><span class="value" data-referral-conversion>0%</span></div>
+                <div class="order-row"><span>Pending Earnings:</span><span class="value" data-referral-earnings>Rs 0.00</span></div>
+                <div class="order-row"><span>Paid Earnings:</span><span class="value" data-referral-paid>Rs 0.00</span></div>
+                <div class="order-row"><span>Min payout:</span><span class="value" data-referral-min-payout>Rs 500.00</span></div>
+              </div>
+              <ul class="stack-list" data-referral-payouts style="margin-top:8px;"></ul>
+            </div>
             </div>
 
             <aside>
@@ -116,5 +137,7 @@
     <script src="assets/backend.js"></script>
   </body>
 </html>
+
+
 
 
