@@ -1,4 +1,4 @@
-const http = require("http");
+﻿const http = require("http");
 const fs = require("fs");
 
 // Stability handlers for production
@@ -30,6 +30,10 @@ const SESSION_TTL_MS = Number(process.env.SESSION_TTL_HOURS || 168) * 60 * 60 * 
 const RESET_TOKEN_TTL_MS = Number(process.env.RESET_LINK_TTL_MINUTES || 5) * 60 * 1000;
 const LOGIN_MAX_FAILURES = Number(process.env.LOGIN_MAX_FAILURES || 5);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ChangeThisAdminPassword123!";
+const REFERRAL_COMMISSION_RATE = Number(process.env.REFERRAL_COMMISSION_RATE || 0.1);
+const REFERRAL_MIN_PAYOUT = Number(process.env.REFERRAL_MIN_PAYOUT || 500);
+const REFERRAL_PAYOUT_DAY = String(process.env.REFERRAL_PAYOUT_DAY || "Sunday");
+const REFERRAL_PAYOUT_TIMEZONE = String(process.env.REFERRAL_PAYOUT_TIMEZONE || "Asia/Kolkata");
 
 const THEMES = {
   classic: {
@@ -334,6 +338,19 @@ function createInitialDb() {
     ],
     providers: [],
     popularCategories: [],
+    referralVisits: [],
+    referralCommissions: [],
+    referralPayouts: [],
+    referralSettings: {
+      commissionRate: REFERRAL_COMMISSION_RATE,
+      minPayout: REFERRAL_MIN_PAYOUT,
+      payoutDay: REFERRAL_PAYOUT_DAY,
+      payoutTimezone: REFERRAL_PAYOUT_TIMEZONE,
+      payoutMode: "weekly",
+      firstClick: true,
+      lifetime: true,
+      selfReferralAllowed: false
+    },
     settings: { activeTheme: "classic" }
   };
 }
@@ -389,7 +406,14 @@ async function writeDb(db) {
 
 function normalizeDb(db) {
   return {
-    users: Array.isArray(db.users) ? db.users : [],
+    users: Array.isArray(db.users)
+      ? db.users.map((user) => ({
+          ...user,
+          balance: Number(user.balance || 0),
+          referralCode: String(user.referralCode || "").trim().toUpperCase(),
+          referredByUserId: user.referredByUserId || null
+        }))
+      : [],
     sessions: Array.isArray(db.sessions) ? db.sessions : [],
     adminSessions: Array.isArray(db.adminSessions) ? db.adminSessions : [],
     orders: Array.isArray(db.orders) ? db.orders : [],
@@ -405,11 +429,24 @@ function normalizeDb(db) {
           ? [{ id: generateId("pro"), name: "Master Provider", url: db.provider.url, key: db.provider.key, margin: db.provider.margin || 10, exchangeRate: 1 }]
           : []),
     popularCategories: Array.isArray(db.popularCategories) ? db.popularCategories : [],
+    referralVisits: Array.isArray(db.referralVisits) ? db.referralVisits : [],
+    referralCommissions: Array.isArray(db.referralCommissions) ? db.referralCommissions : [],
+    referralPayouts: Array.isArray(db.referralPayouts) ? db.referralPayouts : [],
+    referralSettings: {
+      commissionRate: Number(db.referralSettings?.commissionRate ?? REFERRAL_COMMISSION_RATE),
+      minPayout: Number(db.referralSettings?.minPayout ?? REFERRAL_MIN_PAYOUT),
+      payoutDay: String(db.referralSettings?.payoutDay || REFERRAL_PAYOUT_DAY),
+      payoutTimezone: String(db.referralSettings?.payoutTimezone || REFERRAL_PAYOUT_TIMEZONE),
+      payoutMode: "weekly",
+      firstClick: true,
+      lifetime: true,
+      selfReferralAllowed: false
+    },
     settings: (db.settings && typeof db.settings === "object") ? db.settings : { activeTheme: "classic" }
   };
 }
 
-// NOTE: writeDb is defined above (line ~369) — duplicate removed.
+// NOTE: writeDb is defined above (line ~369) â€” duplicate removed.
 
 function send(res, status, payload, headers = {}) {
   const isBuffer = Buffer.isBuffer(payload);
@@ -482,6 +519,8 @@ function sanitizeUser(user) {
     username: user.username,
     email: user.email,
     balance: user.balance,
+    referralCode: user.referralCode || "",
+    referredByUserId: user.referredByUserId || null,
     provider: user.provider,
     createdAt: user.createdAt
   };
@@ -755,13 +794,271 @@ async function dispatchResetEmail(email, resetUrl, expiresAt) {
 function buildAdminStats(db) {
   const openTickets = db.tickets.filter((ticket) => ticket.status === "Open").length;
   const pendingFunds = db.fundRequests.filter((item) => item.status === "Pending").length;
+  const totalSpend = db.orders.reduce((sum, order) => sum + Number(order.charge || 0), 0);
+  const totalBalance = db.users.reduce((sum, user) => sum + Number(user.balance || 0), 0);
   return {
     users: db.users.length,
     orders: db.orders.length,
     tickets: openTickets,
     fundRequests: pendingFunds,
-    services: db.services.length
+    services: db.services.length,
+    totalSpend: Number(totalSpend.toFixed(2)),
+    totalBalance: Number(totalBalance.toFixed(2))
   };
+}
+
+function getUserTotalSpend(db, userId) {
+  return Number(
+    db.orders
+      .filter((order) => order.userId === userId && !["Cancelled", "Refunded", "Failed"].includes(order.status))
+      .reduce((sum, order) => sum + Number(order.charge || 0), 0)
+      .toFixed(2)
+  );
+}
+
+function getUserTotalFundsAdded(db, userId) {
+  return Number(
+    db.fundRequests
+      .filter((entry) => entry.userId === userId && entry.status === "Approved")
+      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
+      .toFixed(2)
+  );
+}
+
+function getUserOrderCounts(db, userId) {
+  const userOrders = db.orders.filter((order) => order.userId === userId);
+  const completed = userOrders.filter((order) => order.status === "Completed").length;
+  return { total: userOrders.length, completed };
+}
+
+function withUserStats(db, user) {
+  const spend = getUserTotalSpend(db, user.id);
+  const funds = getUserTotalFundsAdded(db, user.id);
+  const counts = getUserOrderCounts(db, user.id);
+  return {
+    ...sanitizeUser(user),
+    totalSpend: spend,
+    totalFundsAdded: funds,
+    totalOrders: counts.total,
+    completedOrders: counts.completed
+  };
+}
+
+function generateReferralCode(db, user) {
+  const rawBase = String(user.username || user.email || user.id || "DH")
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase()
+    .slice(0, 6) || "DHUSER";
+  let code = `${rawBase}${Math.floor(1000 + Math.random() * 9000)}`;
+  const existing = new Set((db.users || []).map((entry) => String(entry.referralCode || "").toUpperCase()));
+  while (existing.has(code)) {
+    code = `${rawBase}${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+  return code;
+}
+
+function ensureUserReferralCode(db, user) {
+  if (!user.referralCode) {
+    user.referralCode = generateReferralCode(db, user);
+  }
+}
+
+function normalizeOrderStatus(status, fallback = "Pending") {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (!normalized) return fallback;
+  const map = {
+    pending: "Pending",
+    inprogress: "Processing",
+    "in progress": "Processing",
+    processing: "Processing",
+    progress: "Processing",
+    completed: "Completed",
+    complete: "Completed",
+    partial: "Partial",
+    partially: "Partial",
+    canceled: "Cancelled",
+    cancelled: "Cancelled",
+    refunded: "Refunded",
+    failed: "Failed"
+  };
+  return map[normalized] || fallback;
+}
+
+function isFinalOrderStatus(status) {
+  return ["Completed", "Partial", "Cancelled", "Refunded", "Failed"].includes(String(status || ""));
+}
+
+function parseProviderStatusResponse(payload) {
+  const status = normalizeOrderStatus(
+    payload?.status || payload?.order_status || payload?.state || payload?.data?.status || ""
+  );
+  const remainsRaw = payload?.remains ?? payload?.remain ?? payload?.data?.remains;
+  const startRaw = payload?.start_count ?? payload?.startCount ?? payload?.data?.start_count;
+  const remains = Number(remainsRaw);
+  const startCount = Number(startRaw);
+  return {
+    status,
+    remains: Number.isFinite(remains) ? remains : null,
+    startCount: Number.isFinite(startCount) ? startCount : null
+  };
+}
+
+function getReferralSettings(db) {
+  return db.referralSettings || {
+    commissionRate: REFERRAL_COMMISSION_RATE,
+    minPayout: REFERRAL_MIN_PAYOUT,
+    payoutDay: REFERRAL_PAYOUT_DAY,
+    payoutTimezone: REFERRAL_PAYOUT_TIMEZONE,
+    payoutMode: "weekly",
+    firstClick: true,
+    lifetime: true,
+    selfReferralAllowed: false
+  };
+}
+
+function updateReferralForOrder(db, order, prevStatus, nextStatus) {
+  const referredUser = db.users.find((user) => user.id === order.userId);
+  if (!referredUser || !referredUser.referredByUserId) return;
+  const referrer = db.users.find((user) => user.id === referredUser.referredByUserId);
+  if (!referrer) return;
+  const settings = getReferralSettings(db);
+  const existing = db.referralCommissions.find((item) => item.orderId === order.id);
+
+  if (nextStatus === "Completed" && prevStatus !== "Completed" && !existing) {
+    const fraudBlocked =
+      referrer.id === referredUser.id ||
+      (referredUser.signupIp && referrer.signupIp && referredUser.signupIp === referrer.signupIp);
+    db.referralCommissions.push({
+      id: generateId("refc"),
+      referrerUserId: referrer.id,
+      referredUserId: referredUser.id,
+      orderId: order.id,
+      amount: Number((Number(order.charge || 0) * Number(settings.commissionRate || REFERRAL_COMMISSION_RATE)).toFixed(2)),
+      rate: Number(settings.commissionRate || REFERRAL_COMMISSION_RATE),
+      orderCharge: Number(order.charge || 0),
+      status: fraudBlocked ? "Blocked" : "Approved",
+      reason: fraudBlocked ? "Suspicious self-referral or shared-signup signal" : "Completed order commission",
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    });
+    return;
+  }
+
+  if (["Cancelled", "Refunded", "Failed"].includes(nextStatus) && existing && !["Reversed", "Blocked"].includes(existing.status)) {
+    existing.status = "Reversed";
+    existing.reason = `Auto-reversed because order became ${nextStatus}`;
+    existing.updatedAt = nowIso();
+  }
+}
+
+function buildReferralStatsForUser(db, userId) {
+  const settings = getReferralSettings(db);
+  const visits = db.referralVisits.filter((item) => item.referrerUserId === userId);
+  const registrations = db.users.filter((user) => user.referredByUserId === userId);
+  const commissions = db.referralCommissions.filter((item) => item.referrerUserId === userId);
+  const approved = commissions.filter((item) => item.status === "Approved");
+  const paid = commissions.filter((item) => item.status === "Paid");
+  const lifetime = commissions.filter((item) => ["Approved", "Paid"].includes(item.status));
+  const conversionRate = visits.length ? (registrations.length / visits.length) * 100 : 0;
+  const totals = {
+    visits: visits.length,
+    registrations: registrations.length,
+    conversionRate: Number(conversionRate.toFixed(2)),
+    approvedEarnings: Number(approved.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)),
+    paidEarnings: Number(paid.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)),
+    lifetimeEarnings: Number(lifetime.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)),
+    minPayout: Number(settings.minPayout || REFERRAL_MIN_PAYOUT)
+  };
+  return { totals, commissions };
+}
+
+function processWeeklyReferralPayouts(db, { byAdmin = "system" } = {}) {
+  const settings = getReferralSettings(db);
+  const minPayout = Number(settings.minPayout || REFERRAL_MIN_PAYOUT);
+  const created = [];
+
+  db.users.forEach((user) => {
+    const pending = db.referralCommissions.filter((item) => item.referrerUserId === user.id && item.status === "Approved");
+    const amount = Number(pending.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2));
+    if (amount < minPayout) return;
+
+    const payout = {
+      id: generateId("refp"),
+      referrerUserId: user.id,
+      amount,
+      status: "Paid",
+      mode: "Weekly",
+      weekDay: settings.payoutDay || REFERRAL_PAYOUT_DAY,
+      timezone: settings.payoutTimezone || REFERRAL_PAYOUT_TIMEZONE,
+      createdAt: nowIso(),
+      paidAt: nowIso(),
+      processedBy: byAdmin
+    };
+    db.referralPayouts.push(payout);
+    pending.forEach((entry) => {
+      entry.status = "Paid";
+      entry.updatedAt = nowIso();
+      entry.payoutId = payout.id;
+    });
+    created.push(payout);
+  });
+
+  return created;
+}
+
+async function refreshOrdersFromProviders(db, options = {}) {
+  const maxOrders = Number(options.maxOrders || 50);
+  const userId = options.userId || null;
+  const candidates = db.orders
+    .filter((order) => order.providerOrderId && order.providerId && !isFinalOrderStatus(order.status))
+    .filter((order) => (userId ? order.userId === userId : true))
+    .slice(0, maxOrders);
+
+  let updates = 0;
+  for (const order of candidates) {
+    const provider = db.providers.find((item) => item.id === order.providerId);
+    if (!provider || !provider.url || !provider.key) continue;
+
+    try {
+      const body = new URLSearchParams({
+        key: provider.key,
+        action: "status",
+        order: String(order.providerOrderId)
+      });
+      const response = await fetch(provider.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString()
+      });
+      const payload = await response.json();
+      const parsed = parseProviderStatusResponse(payload);
+      const previous = order.status || "Pending";
+      let changed = false;
+
+      if (parsed.status && parsed.status !== previous) {
+        order.status = parsed.status;
+        changed = true;
+      }
+      if (parsed.remains !== null && Number(order.remains) !== parsed.remains) {
+        order.remains = parsed.remains;
+        changed = true;
+      }
+      if (parsed.startCount !== null && Number(order.startCount) !== parsed.startCount) {
+        order.startCount = parsed.startCount;
+        changed = true;
+      }
+
+      if (changed) {
+        order.lastSyncedAt = nowIso();
+        updateReferralForOrder(db, order, previous, order.status);
+        updates += 1;
+      }
+    } catch {
+      // Ignore provider sync errors for now and keep last known status.
+    }
+  }
+
+  return updates;
 }
 
 function requireNonEmpty(value, message) {
@@ -806,6 +1103,8 @@ async function handleApi(req, res, url) {
     const email = normalizeEmail(body.email);
     const password = String(body.password || "");
     const name = String(body.name || "").trim();
+    const referralCode = String(body.referralCode || "").trim().toUpperCase();
+    const ip = getClientIp(req);
 
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
@@ -819,6 +1118,10 @@ async function handleApi(req, res, url) {
     }
 
     const username = deriveUsername(body.username || name, db.users);
+    const referrer = referralCode
+      ? db.users.find((entry) => String(entry.referralCode || "").toUpperCase() === referralCode)
+      : null;
+
     const user = {
       id: generateId("usr"),
       name,
@@ -826,14 +1129,29 @@ async function handleApi(req, res, url) {
       email,
       passwordHash: hashPassword(password),
       balance: 0,
+      referralCode: "",
+      referredByUserId: referrer ? referrer.id : null,
+      signupIp: ip,
       provider: "email",
       createdAt: nowIso()
     };
+    ensureUserReferralCode(db, user);
 
     db.users.push(user);
+
+    if (referrer) {
+      const firstTouch = db.referralVisits.find(
+        (entry) => entry.code === referralCode && !entry.convertedUserId
+      );
+      if (firstTouch) {
+        firstTouch.convertedUserId = user.id;
+        firstTouch.updatedAt = nowIso();
+      }
+    }
+
     const token = createSession(db, user.id);
     await writeDb(db);
-    return send(res, 201, { token, user: sanitizeUser(user) });
+    return send(res, 201, { token, user: withUserStats(db, user) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/auth/login") {
@@ -870,9 +1188,10 @@ async function handleApi(req, res, url) {
     }
 
     clearLoginFailures(db, identifier, ip);
+    ensureUserReferralCode(db, user);
     const token = createSession(db, user.id);
     await writeDb(db);
-    return send(res, 200, { token, user: sanitizeUser(user) });
+    return send(res, 200, { token, user: withUserStats(db, user) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/auth/google") {
@@ -880,6 +1199,8 @@ async function handleApi(req, res, url) {
     const db = await readDb();
     cleanupDb(db);
     const credential = String(body.credential || "");
+    const referralCode = String(body.referralCode || "").trim().toUpperCase();
+    const ip = getClientIp(req);
 
     if (!googleClient || !credential) {
       return send(res, 400, { error: "Google login is not configured correctly." });
@@ -908,6 +1229,9 @@ async function handleApi(req, res, url) {
 
     let user = db.users.find((entry) => entry.googleSub === googleSub || entry.email === email);
     if (!user) {
+      const referrer = referralCode
+        ? db.users.find((entry) => String(entry.referralCode || "").toUpperCase() === referralCode)
+        : null;
       user = {
         id: generateId("usr"),
         name,
@@ -916,9 +1240,13 @@ async function handleApi(req, res, url) {
         googleSub,
         passwordHash: "",
         balance: 0,
+        referralCode: "",
+        referredByUserId: referrer ? referrer.id : null,
+        signupIp: ip,
         provider: "google",
         createdAt: nowIso()
       };
+      ensureUserReferralCode(db, user);
       db.users.push(user);
     } else {
       user.googleSub = googleSub;
@@ -926,11 +1254,12 @@ async function handleApi(req, res, url) {
       if (!user.username) {
         user.username = deriveUsername(name || email, db.users);
       }
+      ensureUserReferralCode(db, user);
     }
 
     const token = createSession(db, user.id);
     await writeDb(db);
-    return send(res, 200, { token, user: sanitizeUser(user) });
+    return send(res, 200, { token, user: withUserStats(db, user) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/auth/forgot-password") {
@@ -1039,15 +1368,43 @@ async function handleApi(req, res, url) {
       return send(res, 401, { error: "Unauthorized" });
     }
 
+    await refreshOrdersFromProviders(auth.db, { maxOrders: 120 });
+    auth.db.users.forEach((user) => ensureUserReferralCode(auth.db, user));
+    await writeDb(auth.db);
+
+    const usersWithStats = auth.db.users.map((user) => withUserStats(auth.db, user));
+    const ordersWithProvider = auth.db.orders.map((order) => {
+      const provider = auth.db.providers.find((item) => item.id === order.providerId);
+      return {
+        ...order,
+        providerName: provider ? provider.name : "Manual"
+      };
+    });
+    const referralOverview = {
+      totalCommissions: Number(
+        auth.db.referralCommissions.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)
+      ),
+      pendingCommissions: Number(
+        auth.db.referralCommissions
+          .filter((item) => item.status === "Approved")
+          .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+          .toFixed(2)
+      ),
+      totalPayouts: Number(
+        auth.db.referralPayouts.reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)
+      )
+    };
+
     return send(res, 200, {
       admin: auth.admin,
       stats: buildAdminStats(auth.db),
-      users: auth.db.users.map(sanitizeUser),
-      orders: auth.db.orders,
+      users: usersWithStats,
+      orders: ordersWithProvider,
       tickets: auth.db.tickets,
       fundRequests: auth.db.fundRequests,
       services: auth.db.services,
-      providers: auth.db.providers
+      providers: auth.db.providers,
+      referralOverview
     });
   }
 
@@ -1088,6 +1445,16 @@ async function handleApi(req, res, url) {
     auth.db.fundRequests = auth.db.fundRequests.filter((entry) => entry.userId !== userId);
     auth.db.orders = auth.db.orders.filter((entry) => entry.userId !== userId);
     auth.db.tickets = auth.db.tickets.filter((entry) => entry.userId !== userId);
+    auth.db.referralVisits = auth.db.referralVisits.filter((entry) => entry.referrerUserId !== userId && entry.convertedUserId !== userId);
+    auth.db.referralCommissions = auth.db.referralCommissions.filter(
+      (entry) => entry.referrerUserId !== userId && entry.referredUserId !== userId
+    );
+    auth.db.referralPayouts = auth.db.referralPayouts.filter((entry) => entry.referrerUserId !== userId);
+    auth.db.users.forEach((entry) => {
+      if (entry.referredByUserId === userId) {
+        entry.referredByUserId = null;
+      }
+    });
 
     await writeDb(auth.db);
     return send(res, 200, { message: "User deleted successfully." });
@@ -1178,71 +1545,58 @@ async function handleApi(req, res, url) {
     if (!auth) return send(res, 401, { error: "Unauthorized" });
     const body = await parseBody(req);
     const providerId = String(body.providerId || "");
-    const provider = auth.db.providers.find(p => p.id === providerId);
+    const provider = auth.db.providers.find((p) => p.id === providerId);
     if (!provider) return send(res, 400, { error: "Select a valid provider to sync." });
-    
+
     const { url: api, key, margin } = provider;
     if (!api || !key) return send(res, 400, { error: "API URL and Key are required for syncing." });
-    
+
     try {
       const fetchUrl = `${api}?key=${key}&action=services`;
       const response = await fetch(fetchUrl);
       const data = await response.json();
       if (!Array.isArray(data)) throw new Error(data.error || "Invalid response from provider.");
-      
-      const currentMap = new Map((auth.db.services || []).filter(s => s.providerId === providerId).map(s => [s.id, s]));
-      const otherServices = (auth.db.services || []).filter(s => s.providerId !== providerId);
-      const nextServices = [];
-      
-      const exRate = Number(provider.exchangeRate || 1);
-      console.log(`[Sync] Starting sync for provider: ${provider.name} (ID: ${providerId})`);
-      console.log(`[Sync] Using Exchange Rate: ${exRate} and Margin: ${margin}%`);
 
-      data.forEach(service => {
-        const providerServiceId = String(service.service);  // Provider's original numeric ID e.g. "1234"
-        const internalId = `${providerId}_${providerServiceId}`;  // Unique internal ID: "pro_abc123_1234"
+      const currentMap = new Map(
+        (auth.db.services || []).filter((s) => s.providerId === providerId).map((s) => [s.id, s])
+      );
+      const otherServices = (auth.db.services || []).filter((s) => s.providerId !== providerId);
+      const nextServices = [];
+
+      const exRate = Number(provider.exchangeRate || 1);
+
+      data.forEach((service) => {
+        const providerServiceId = String(service.service);
+        const internalId = `${providerId}_${providerServiceId}`;
         const originalRate = Number(service.rate || 0);
         const baseInInr = originalRate * exRate;
         const augmentedRate = Number((baseInInr + (baseInInr * (margin / 100))).toFixed(4));
-        const extName = String(service.name);
+        const extName = String(service.name || "");
         const extDesc = String(service.desc || "");
-        const extCat = String(service.category);
+        const extCat = String(service.category || "Other");
         const extMin = Number(service.min || 1);
         const extMax = Number(service.max || 1000000);
 
         const existing = currentMap.get(providerServiceId) || currentMap.get(internalId);
-        if (existing) {
-          nextServices.push({
-            ...existing,
-            id: internalId,                        // ← update to new format if was old
-            providerServiceId: providerServiceId,  // ← provider's numeric ID saved explicitly
-            providerId,
-            category: existing.category || extCat,
-            name: existing.name || extName,
-            originalRate: originalRate,
-            ratePer1000: augmentedRate,
-            min: extMin,
-            max: extMax,
-            desc: (existing.desc !== undefined && existing.desc !== "") ? existing.desc : extDesc
-          });
-        } else {
-          nextServices.push({
-            id: internalId,                        // ← internal unique ID
-            providerServiceId: providerServiceId,  // ← provider's numeric ID e.g. "1234"
-            providerId,
-            category: extCat,
-            name: extName,
-            originalRate: originalRate,
-            ratePer1000: augmentedRate,
-            min: extMin,
-            max: extMax,
-            desc: extDesc
-          });
-        }
+        const customDesc = String(existing?.customDesc || "").trim();
+
+        nextServices.push({
+          ...(existing || {}),
+          id: internalId,
+          providerServiceId,
+          providerId,
+          category: (existing?.category || extCat).trim(),
+          name: (existing?.name || extName).trim(),
+          originalRate,
+          ratePer1000: augmentedRate,
+          min: extMin,
+          max: extMax,
+          providerDesc: extDesc,
+          customDesc,
+          desc: customDesc || extDesc
+        });
       });
-      
-      console.log(`[Sync] Successfully processed ${nextServices.length} services.`);
-      
+
       auth.db.services = [...otherServices, ...nextServices];
       await writeDb(auth.db);
       return send(res, 200, { message: `Successfully synced ${nextServices.length} services for ${provider.name}!` });
@@ -1256,34 +1610,33 @@ async function handleApi(req, res, url) {
     if (!auth) return send(res, 401, { error: "Unauthorized" });
     const body = await parseBody(req);
     const id = String(body.id || "");
-    const service = auth.db.services.find(s => s.id === id);
+    const service = auth.db.services.find((s) => s.id === id);
     if (!service) return send(res, 404, { error: "Service not found." });
-    
+
     if (body.name !== undefined) service.name = String(body.name).trim();
     if (body.category !== undefined) service.category = String(body.category).trim();
-    if (body.desc !== undefined) service.desc = String(body.desc).trim();
-    
+    if (body.desc !== undefined) {
+      service.customDesc = String(body.desc).trim();
+      service.desc = service.customDesc;
+    }
+
     if (body.ratePer1000 !== undefined) {
       const newRate = Number(body.ratePer1000);
       service.ratePer1000 = newRate;
-      
-      // Update originalRate to "back-calculate" the base price based on current provider settings.
-      // This ensures that future global margin/exchange-rate updates respect this new manual price.
-      const provider = auth.db.providers.find(p => p.id === service.providerId);
+
+      const provider = auth.db.providers.find((p) => p.id === service.providerId);
       if (provider) {
         const margin = Number(provider.margin || 0);
         const exRate = Number(provider.exchangeRate || 1);
-        // originalRate = newRate / (exchangeRate * (1 + margin/100))
         service.originalRate = Number((newRate / (exRate * (1 + (margin / 100)))).toFixed(4));
       } else {
         service.originalRate = newRate;
       }
     }
-    
+
     await writeDb(auth.db);
     return send(res, 200, { message: "Service updated successfully.", service });
   }
-
   if (req.method === "DELETE" && url.pathname === "/api/admin/services/all") {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
@@ -1336,7 +1689,7 @@ async function handleApi(req, res, url) {
               <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                 <h2 style="color: #4834d4;">Funds Added!</h2>
                 <p>Hello <strong>${user.name}</strong>,</p>
-                <p>Your payment request of <strong>₹${fundRequest.amount}</strong> has been approved.</p>
+                <p>Your payment request of <strong>â‚¹${fundRequest.amount}</strong> has been approved.</p>
                 <p>Your new balance is now available in your dashboard.</p>
                 <p>Thank you for choosing DreamHubs!</p>
               </div>
@@ -1483,13 +1836,42 @@ async function handleApi(req, res, url) {
     return send(res, 200, { services: db.services });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/referral/visit") {
+    const db = await readDb();
+    cleanupDb(db);
+    const body = await parseBody(req);
+    const code = String(body.code || "").trim().toUpperCase();
+    if (!code) {
+      return send(res, 400, { error: "Referral code is required." });
+    }
+
+    const referrer = db.users.find((entry) => String(entry.referralCode || "").toUpperCase() === code);
+    if (!referrer) {
+      return send(res, 404, { error: "Referral code not found." });
+    }
+
+    db.referralVisits.push({
+      id: generateId("refv"),
+      code,
+      referrerUserId: referrer.id,
+      ip: getClientIp(req),
+      userAgent: String(req.headers["user-agent"] || "").slice(0, 256),
+      createdAt: nowIso(),
+      convertedUserId: null
+    });
+    await writeDb(db);
+    return send(res, 200, { message: "Referral tracked.", code });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/me") {
     const auth = await requireUser(req);
     if (!auth) {
       return send(res, 401, { error: "Unauthorized" });
     }
 
-    return send(res, 200, { user: sanitizeUser(auth.user) });
+    ensureUserReferralCode(auth.db, auth.user);
+    await writeDb(auth.db);
+    return send(res, 200, { user: withUserStats(auth.db, auth.user) });
   }
 
   if (req.method === "PATCH" && url.pathname === "/api/me") {
@@ -1514,13 +1896,18 @@ async function handleApi(req, res, url) {
     auth.user.name = name;
     auth.user.email = email;
     await writeDb(auth.db);
-    return send(res, 200, { user: sanitizeUser(auth.user) });
+    return send(res, 200, { user: withUserStats(auth.db, auth.user) });
   }
 
   if (req.method === "GET" && url.pathname === "/api/orders") {
     const auth = await requireUser(req);
     if (!auth) {
       return send(res, 401, { error: "Unauthorized" });
+    }
+
+    if (url.searchParams.get("sync") === "1") {
+      await refreshOrdersFromProviders(auth.db, { userId: auth.user.id, maxOrders: 40 });
+      await writeDb(auth.db);
     }
 
     const orders = auth.db.orders.filter((order) => order.userId === auth.user.id);
@@ -1548,10 +1935,10 @@ async function handleApi(req, res, url) {
       return send(res, 400, { error: "Enter a valid quantity." });
     }
 
-    // 🔍 Find the service record from DB
+    // ðŸ” Find the service record from DB
     const svcRecord = auth.db.services.find(s => s.name === service && s.category === category);
 
-    // ✅ Validate min/max from the actual service record
+    // âœ… Validate min/max from the actual service record
     if (svcRecord) {
       if (svcRecord.min && quantity < svcRecord.min) {
         return send(res, 400, { error: `Minimum order quantity is ${svcRecord.min}.` });
@@ -1563,26 +1950,26 @@ async function handleApi(req, res, url) {
 
     const charge = Number(((quantity / 1000) * ratePer1000).toFixed(2));
 
-    // ✅ Check user has enough balance
+    // âœ… Check user has enough balance
     const currentBalance = Number(auth.user.balance) || 0;
     if (currentBalance < charge) {
-      return send(res, 400, { error: `Insufficient balance. Required: ₹${charge}, Available: ₹${currentBalance.toFixed(2)}` });
+      return send(res, 400, { error: `Insufficient balance. Required: â‚¹${charge}, Available: â‚¹${currentBalance.toFixed(2)}` });
     }
 
-    // ✅ Deduct balance immediately (will refund if provider fails)
+    // âœ… Deduct balance immediately (will refund if provider fails)
     auth.user.balance = Number((currentBalance - charge).toFixed(2));
 
     let providerOrderId = null;
     let finalStatus = "Pending";
     let providerIdStored = null;
 
-    // ✅ Forward to API provider if service has a provider linked
+    // âœ… Forward to API provider if service has a provider linked
     if (svcRecord && svcRecord.providerId) {
       const provider = auth.db.providers.find(p => p.id === svcRecord.providerId);
       if (provider && provider.url && provider.key) {
         providerIdStored = provider.id;
         try {
-          // ✅ Use providerServiceId (provider's numeric ID like "1234")
+          // âœ… Use providerServiceId (provider's numeric ID like "1234")
           // Falls back to svcRecord.id for backward compatibility
           const providerServiceId = svcRecord.providerServiceId || svcRecord.id;
           console.log(`[Order] Forwarding to provider. Service ID: ${providerServiceId}, Qty: ${quantity}, Link: ${target}`);
@@ -1590,7 +1977,7 @@ async function handleApi(req, res, url) {
           const providerBody = new URLSearchParams({
             key: provider.key,
             action: "add",
-            service: providerServiceId,   // ← provider's numeric service ID
+            service: providerServiceId,   // â† provider's numeric service ID
             link: target,
             quantity: String(quantity)
           });
@@ -1606,29 +1993,29 @@ async function handleApi(req, res, url) {
           if (providerData && providerData.order) {
             providerOrderId = String(providerData.order);
             finalStatus = "Processing";
-            console.log(`[Order] ✅ Provider accepted. Provider Order ID: ${providerOrderId}`);
+            console.log(`[Order] âœ… Provider accepted. Provider Order ID: ${providerOrderId}`);
           } else {
-            // ❌ Provider returned error — REFUND balance
+            // âŒ Provider returned error â€” REFUND balance
             auth.user.balance = Number((auth.user.balance + charge).toFixed(2));
             const providerError = providerData?.error || "Provider rejected the order.";
-            console.error(`[Order] ❌ Provider error: ${providerError}`);
+            console.error(`[Order] âŒ Provider error: ${providerError}`);
             await writeDb(auth.db);
             return send(res, 400, { error: `Order failed: ${providerError}` });
           }
         } catch (provErr) {
-          // ❌ Network error — REFUND balance
+          // âŒ Network error â€” REFUND balance
           auth.user.balance = Number((auth.user.balance + charge).toFixed(2));
-          console.error(`[Order] ❌ Provider API unreachable: ${provErr.message}`);
+          console.error(`[Order] âŒ Provider API unreachable: ${provErr.message}`);
           await writeDb(auth.db);
           return send(res, 500, { error: "Could not reach provider. Your balance was not deducted. Please try again." });
         }
       } else {
-        // Provider config missing — save as Pending, admin will handle
-        console.warn(`[Order] ⚠️ Provider config missing for service: ${service}. Saving as Pending.`);
+        // Provider config missing â€” save as Pending, admin will handle
+        console.warn(`[Order] âš ï¸ Provider config missing for service: ${service}. Saving as Pending.`);
       }
     } else {
-      // No provider linked — manual fulfillment by admin
-      console.log(`[Order] ℹ️ No provider linked for service: ${service}. Saved as Pending for manual fulfillment.`);
+      // No provider linked â€” manual fulfillment by admin
+      console.log(`[Order] â„¹ï¸ No provider linked for service: ${service}. Saved as Pending for manual fulfillment.`);
     }
 
     const orderNumber = auth.db.orders.length + 1;
@@ -1649,6 +2036,7 @@ async function handleApi(req, res, url) {
     };
 
     auth.db.orders.unshift(order);
+    updateReferralForOrder(auth.db, order, "Pending", order.status);
     await writeDb(auth.db);
     return send(res, 201, { order, balance: auth.user.balance });
   }
@@ -1737,6 +2125,63 @@ async function handleApi(req, res, url) {
     auth.db.fundRequests.unshift(fundRequest);
     await writeDb(auth.db);
     return send(res, 201, { fundRequest });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/referrals/me") {
+    const auth = await requireUser(req);
+    if (!auth) {
+      return send(res, 401, { error: "Unauthorized" });
+    }
+    ensureUserReferralCode(auth.db, auth.user);
+    const stats = buildReferralStatsForUser(auth.db, auth.user.id);
+    const referralLink = `${APP_BASE_URL}/register.html?ref=${encodeURIComponent(auth.user.referralCode)}`;
+    const payouts = auth.db.referralPayouts
+      .filter((entry) => entry.referrerUserId === auth.user.id)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    await writeDb(auth.db);
+    return send(res, 200, {
+      referralCode: auth.user.referralCode,
+      referralLink,
+      policy: getReferralSettings(auth.db),
+      stats: stats.totals,
+      commissions: stats.commissions,
+      payouts
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/orders/sync-status") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const updated = await refreshOrdersFromProviders(auth.db, { maxOrders: 250 });
+    await writeDb(auth.db);
+    return send(res, 200, { message: `Synced ${updated} orders from provider APIs.`, updated });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/referrals") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+
+    const users = auth.db.users.map((user) => {
+      const summary = buildReferralStatsForUser(auth.db, user.id).totals;
+      return {
+        ...withUserStats(auth.db, user),
+        referral: summary
+      };
+    });
+
+    return send(res, 200, {
+      policy: getReferralSettings(auth.db),
+      users,
+      payouts: auth.db.referralPayouts
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/referrals/payouts/process") {
+    const auth = await requireAdmin(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    const created = processWeeklyReferralPayouts(auth.db, { byAdmin: auth.admin.username || "admin" });
+    await writeDb(auth.db);
+    return send(res, 200, { message: `Processed ${created.length} weekly payouts.`, payouts: created });
   }
 
   if (req.method === "POST" && url.pathname === "/api/auth/logout") {
@@ -1849,3 +2294,6 @@ if (process.env.VERCEL || process.env.AWS_LAMBDA) {
   };
   start();
 }
+
+
+

@@ -49,7 +49,7 @@
     <div class="admin-layout" data-admin-panel hidden>
       <aside class="sidebar">
         <a class="brand" href="index.html">
-          <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
+          <img src="assets/logo.svg" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
         </a>
         <nav class="sidebar-nav">
           <a class="active" href="#dashboard">Dashboard</a>
@@ -58,6 +58,7 @@
           <a href="#tickets">Tickets</a>
           <a href="#services">Services</a>
           <a href="#popular">Popular</a>
+          <a href="#referrals">Referrals</a>
           <a href="#funds">Fund Requests</a>
           <a href="#apis">API Providers</a>
           <a href="#appearance">Appearance</a>
@@ -93,13 +94,26 @@
             <strong data-admin-funds>0</strong>
             <small>Fund requests</small>
           </article>
+          <article class="card stat-card">
+            <span>Total user balance</span>
+            <strong data-admin-total-balance>Rs 0.00</strong>
+            <small>Available wallet balance</small>
+          </article>
+          <article class="card stat-card">
+            <span>Total spend</span>
+            <strong data-admin-total-spend>Rs 0.00</strong>
+            <small>Orders billed on platform</small>
+          </article>
         </section>
 
         <section class="admin-grid">
           <article class="card wide" id="orders">
             <div class="section-title">
               <h2>Recent orders</h2>
-              <span class="status-pill">Live sync</span>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="status-pill">Live sync</span>
+                <button class="primary-btn mini" type="button" onclick="adminSyncOrderStatuses()">Sync now</button>
+              </div>
             </div>
             <table class="data-table">
               <thead>
@@ -232,6 +246,16 @@
             </div>
           </article>
 
+          <article class="card" id="referrals">
+            <div class="section-title">
+              <h2>Referral Program</h2>
+              <span>Affiliate insights</span>
+            </div>
+            <div data-admin-referral-stats style="margin-bottom: 12px; color: var(--muted);">Loading referral metrics...</div>
+            <button class="primary-btn" type="button" onclick="adminProcessReferralPayouts()">Process Weekly Payouts</button>
+            <p class="auth-note" style="margin-top: 10px;">Minimum payout: Rs 500, weekly cycle on Sunday.</p>
+          </article>
+
           <article class="card" id="funds">
             <div class="section-title">
               <h2>Fund requests</h2>
@@ -305,5 +329,7 @@
     <script src="assets/backend.js"></script>
   </body>
 </html>
+
+
 
 
