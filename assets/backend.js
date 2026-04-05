@@ -996,6 +996,7 @@ async function handleAdminPage() {
     try {
       const data = await API.request("/api/admin/login", {
         method: "POST",
+        admin: true,
         body: JSON.stringify({
           identifier: form.querySelector("[name='identifier']").value,
           password: form.querySelector("[name='password']").value
