@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -49,7 +49,7 @@
     <div class="admin-layout" data-admin-panel hidden>
       <aside class="sidebar">
         <a class="brand" href="index.html">
-          <img src="assets/logo.svg" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
+          <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
         </a>
         <nav class="sidebar-nav">
           <a class="active" href="#dashboard">Dashboard</a>
@@ -184,7 +184,7 @@
                 <h2>Service controls</h2>
                 <span>Catalog</span>
               </div>
-              <button class="primary-btn" style="background: #ff4444; padding: 10px 20px;" onclick="adminCleanServices()">âš ï¸ Delete All Services (Cleanup)</button>
+              <button class="primary-btn" style="background: #ff4444; padding: 10px 20px;" onclick="adminCleanServices()">⚠️ Delete All Services (Cleanup)</button>
             </div>
             <div class="admin-controls-grid" style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
               <div class="control-box">
@@ -193,8 +193,8 @@
                   <select class="smm-select" data-admin-category-select style="flex: 1; margin: 0;">
                     <option value="">Loading categories...</option>
                   </select>
-                  <button title="Rename Category" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditCategory()">âœŽ</button>
-                  <button title="Delete Category" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteCategory()">Ã—</button>
+                  <button title="Rename Category" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditCategory()">✎</button>
+                  <button title="Delete Category" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteCategory()">×</button>
                 </div>
               </div>
               
@@ -204,8 +204,8 @@
                   <select class="smm-select" data-admin-service-select style="flex: 1; margin: 0;">
                     <option value="">Select a category first</option>
                   </select>
-                  <button title="Edit Service" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditService()">âœŽ</button>
-                  <button title="Delete Service" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteService()">Ã—</button>
+                  <button title="Edit Service" class="primary-btn mini" style="background: var(--blue);" onclick="adminEditService()">✎</button>
+                  <button title="Delete Service" class="primary-btn mini" style="background: #ff4444;" onclick="adminDeleteService()">×</button>
                 </div>
               </div>
             </div>
@@ -241,7 +241,7 @@
               <p style="color: var(--muted); font-size: 0.85rem;">Loading categories...</p>
             </div>
             <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-              <button class="primary-btn" onclick="adminSavePopularCategories()" style="padding: 10px 24px;">ðŸ’¾ Save Selection</button>
+              <button class="primary-btn" onclick="adminSavePopularCategories()" style="padding: 10px 24px;">💾 Save Selection</button>
               <p class="auth-note" id="popular-categories-status" aria-live="polite" style="margin: 0;"></p>
             </div>
           </article>
