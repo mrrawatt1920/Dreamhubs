@@ -1,7 +1,8 @@
-const API = {
+﻿const API = {
   tokenKey: "dreamhubs-token",
   userKey: "dreamhubs-user",
   adminTokenKey: "dreamhubs-admin-token",
+  demoKey: "dreamhubs-demo-mode",
 
   async syncTheme() {
     try {
@@ -10,14 +11,23 @@ const API = {
       Object.entries(theme).forEach(([key, value]) => {
         root.style.setProperty(key, value);
       });
-      // Force light/dark scheme for browser elements
-      if (theme["--bg"].includes("#0") || theme["--bg"].includes("#1")) {
-        root.setAttribute("data-theme", "dark");
+      const localThemeChoice = localStorage.getItem("dreamhubs-theme");
+      if (localThemeChoice === "light" || localThemeChoice === "dark") {
+        root.setAttribute("data-theme", localThemeChoice);
+      } else if (localThemeChoice === "system") {
+        const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        root.setAttribute("data-theme", prefersDark ? "dark" : "light");
       } else {
-        root.setAttribute("data-theme", "light");
+        const bgColor = String(theme["--bg"] || "").trim();
+        const luminance = getHexLuminance(bgColor);
+        if (luminance !== null) {
+          root.setAttribute("data-theme", luminance < 0.45 ? "dark" : "light");
+        }
       }
     } catch (e) {
       console.warn("Theme sync failed:", e.message);
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
     }
   },
 
@@ -47,6 +57,7 @@ const API = {
   clearSession() {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userKey);
+    localStorage.removeItem(this.demoKey);
   },
 
   clearAdminSession() {
@@ -62,6 +73,10 @@ const API = {
   },
 
   async request(path, options = {}) {
+    if (!options.admin && this.isDemoMode()) {
+      return demoRequest(path, options);
+    }
+
     const headers = {
       "Content-Type": "application/json",
       ...(options.headers || {})
@@ -83,9 +98,197 @@ const API = {
     }
 
     return data;
+  },
+
+  isDemoMode() {
+    return localStorage.getItem(this.demoKey) === "1";
   }
 };
 
+function getHexLuminance(hexColor) {
+  const color = String(hexColor || "").replace("#", "").trim();
+  if (!/^[0-9a-fA-F]{3,8}$/.test(color)) {
+    return null;
+  }
+
+  const normalized = color.length === 3
+    ? color.split("").map((c) => c + c).join("")
+    : color.slice(0, 6);
+
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+function getStatusClass(status) {
+  const value = String(status || "").toLowerCase();
+  if (["completed"].includes(value)) return "status-completed";
+  if (["processing", "in progress"].includes(value)) return "status-processing";
+  if (["partial"].includes(value)) return "status-partial";
+  if (["cancelled", "canceled", "refunded", "failed"].includes(value)) return "status-failed";
+  return "status-pending";
+}
+
+
+function getDemoState() {
+  const raw = localStorage.getItem("dreamhubs-demo-db");
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+    }
+  }
+
+  const seed = {
+    user: {
+      id: "demo_user",
+      name: "Demo User",
+      username: "demo_user",
+      email: "demo@dreamhubs.local",
+      balance: 2500,
+      totalSpend: 1800,
+      totalOrders: 2,
+      completedOrders: 1,
+      referralCode: "DEMO1234"
+    },
+    services: [
+      { id: "d1", category: "Instagram Services", name: "Instagram Followers", ratePer1000: 60, min: 100, max: 50000, desc: "High quality IG followers." },
+      { id: "d2", category: "YouTube Services", name: "YouTube Views", ratePer1000: 45, min: 500, max: 200000, desc: "Fast YT video views." },
+      { id: "d3", category: "Telegram Services", name: "Telegram Members", ratePer1000: 70, min: 100, max: 100000, desc: "Real-looking telegram growth." },
+      { id: "d4", category: "Facebook Services", name: "Facebook Page Likes", ratePer1000: 55, min: 100, max: 60000, desc: "Page engagement pack." }
+    ],
+    orders: [
+      { id: "DH9001", service: "Instagram Followers", category: "Instagram Services", target: "https://instagram.com/demo", quantity: 1000, charge: 60, status: "Completed", startCount: 120, remains: 0, createdAt: new Date().toISOString() },
+      { id: "DH9002", service: "YouTube Views", category: "YouTube Services", target: "https://youtube.com/watch?v=demo", quantity: 5000, charge: 225, status: "Processing", startCount: 340, remains: 2400, createdAt: new Date().toISOString() }
+    ],
+    tickets: [],
+    funds: [],
+    popularCategories: ["Instagram Services", "YouTube Services", "Telegram Services"],
+    referral: {
+      visits: 42,
+      registrations: 8,
+      conversionRate: 19.05,
+      approvedEarnings: 760,
+      paidEarnings: 500,
+      minPayout: 500
+    },
+    payouts: [
+      { id: "DP1", amount: 500, status: "Paid", paidAt: new Date().toISOString() }
+    ]
+  };
+  localStorage.setItem("dreamhubs-demo-db", JSON.stringify(seed));
+  return seed;
+}
+
+function setDemoState(next) {
+  localStorage.setItem("dreamhubs-demo-db", JSON.stringify(next));
+}
+
+async function demoRequest(path, options = {}) {
+  const state = getDemoState();
+  const method = String(options.method || "GET").toUpperCase();
+  const body = options.body ? JSON.parse(options.body) : {};
+  const cleanPath = String(path || "").split("?")[0];
+
+  if (cleanPath === "/api/appearance" && method === "GET") {
+    return {
+      active: "classic",
+      theme: {
+        "--bg": "#f5f1e8",
+        "--bg-soft": "#fffaf0",
+        "--surface": "rgba(255, 252, 246, 0.82)",
+        "--surface-strong": "#fffdfa",
+        "--text": "#1f1d1a",
+        "--muted": "#645d55",
+        "--line": "rgba(59, 45, 28, 0.12)",
+        "--accent": "#4834d4",
+        "--accent-strong": "#3725b4",
+        "--accent-soft": "rgba(72, 52, 212, 0.16)"
+      },
+      themes: [{ id: "classic", name: "Classic Cream" }]
+    };
+  }
+
+  if (cleanPath === "/api/me" && method === "GET") return { user: state.user };
+  if (cleanPath === "/api/services" && method === "GET") return { services: state.services };
+  if (cleanPath === "/api/orders" && method === "GET") return { orders: state.orders };
+
+  if (cleanPath === "/api/orders" && method === "POST") {
+    const quantity = Number(body.quantity || 0);
+    const rate = Number(body.ratePer1000 || 0);
+    const charge = Number(((quantity / 1000) * rate).toFixed(2));
+    if (state.user.balance < charge) throw new Error("Insufficient balance (demo).");
+
+    state.user.balance = Number((state.user.balance - charge).toFixed(2));
+    state.user.totalSpend = Number((state.user.totalSpend + charge).toFixed(2));
+    state.user.totalOrders += 1;
+
+    const order = {
+      id: `DH${9000 + state.orders.length + 1}`,
+      service: body.service,
+      category: body.category,
+      target: body.target,
+      quantity,
+      charge,
+      status: "Processing",
+      startCount: 0,
+      remains: quantity,
+      createdAt: new Date().toISOString()
+    };
+    state.orders.unshift(order);
+    setDemoState(state);
+    localStorage.setItem(API.userKey, JSON.stringify(state.user));
+    return { order, balance: state.user.balance };
+  }
+
+  if (cleanPath === "/api/popular-categories" && method === "GET") {
+    return { popularCategories: state.popularCategories, allCategories: [...new Set(state.services.map((s) => s.category))] };
+  }
+  if (cleanPath === "/api/tickets" && method === "GET") return { tickets: state.tickets };
+  if (cleanPath === "/api/tickets" && method === "POST") {
+    state.tickets.unshift({
+      id: `T${100 + state.tickets.length}`,
+      subject: body.subject || "Demo Ticket",
+      message: body.message || "",
+      status: "Open",
+      createdAt: new Date().toISOString()
+    });
+    setDemoState(state);
+    return { ticket: state.tickets[0] };
+  }
+
+  if (cleanPath === "/api/funds" && method === "GET") return { fundRequests: state.funds, balance: state.user.balance };
+  if (cleanPath === "/api/funds" && method === "POST") {
+    state.funds.unshift({
+      id: `F${100 + state.funds.length}`,
+      amount: Number(body.amount || 0),
+      method: body.method || "UPI",
+      reference: body.reference || "DEMO",
+      status: "Pending",
+      createdAt: new Date().toISOString()
+    });
+    setDemoState(state);
+    return { fundRequest: state.funds[0] };
+  }
+
+  if (cleanPath === "/api/referrals/me" && method === "GET") {
+    return {
+      referralCode: state.user.referralCode,
+      referralLink: `${window.location.origin}/register.html?ref=${state.user.referralCode}`,
+      stats: state.referral,
+      payouts: state.payouts
+    };
+  }
+
+  if (cleanPath === "/api/auth/logout" && method === "POST") {
+    localStorage.removeItem(API.demoKey);
+    localStorage.removeItem("dreamhubs-demo-db");
+    return { message: "Logged out." };
+  }
+
+  throw new Error("This action is not available in demo mode.");
+}
 function setText(selector, value) {
   const element = document.querySelector(selector);
   if (element) {
@@ -158,6 +361,14 @@ async function handleRegisterPage() {
     return;
   }
 
+  const searchParams = new URLSearchParams(window.location.search);
+  const referralCodeFromUrl = String(searchParams.get("ref") || "").trim().toUpperCase();
+  const existingStoredReferral = localStorage.getItem("dreamhubs-referral-code") || "";
+  const referralCode = existingStoredReferral || referralCodeFromUrl;
+  if (!existingStoredReferral && referralCodeFromUrl) {
+    localStorage.setItem("dreamhubs-referral-code", referralCodeFromUrl);
+  }
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -165,7 +376,8 @@ async function handleRegisterPage() {
       name: form.querySelector("[name='name']").value,
       username: form.querySelector("[name='username']").value,
       email: form.querySelector("[name='email']").value,
-      password: form.querySelector("[name='password']").value
+      password: form.querySelector("[name='password']").value,
+      referralCode
     };
 
     const confirmPassword = form.querySelector("[name='confirmPassword']").value;
@@ -199,9 +411,30 @@ async function handleLoginPage() {
   const loginStatus = document.querySelector("[data-login-status]");
   const googleMount = document.querySelector("[data-google-signin]");
   const googleStatus = document.querySelector("[data-google-status]");
+  const demoLoginBtn = document.querySelector("[data-demo-login]");
   const forgotToggle = document.querySelector("[data-forgot-toggle]");
   const forgotForm = document.querySelector("[data-forgot-form]");
   const forgotMessage = document.querySelector("[data-forgot-message]");
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const referralCodeFromUrl = String(searchParams.get("ref") || "").trim().toUpperCase();
+  const storedReferralCode = localStorage.getItem("dreamhubs-referral-code") || "";
+  const referralCode = storedReferralCode || referralCodeFromUrl;
+
+  if (referralCodeFromUrl && !storedReferralCode) {
+    localStorage.setItem("dreamhubs-referral-code", referralCodeFromUrl);
+  }
+
+  if (referralCodeFromUrl) {
+    try {
+      await API.request("/api/referral/visit", {
+        method: "POST",
+        body: JSON.stringify({ code: referralCodeFromUrl })
+      });
+    } catch {
+      // Ignore tracking errors on login page.
+    }
+  }
 
   if (googleMount) {
     const clientId = document.body.dataset.googleClientId || "";
@@ -217,7 +450,8 @@ async function handleLoginPage() {
             const data = await API.request("/api/auth/google", {
               method: "POST",
               body: JSON.stringify({
-                credential: response.credential
+                credential: response.credential,
+                referralCode
               })
             });
             API.setSession(data);
@@ -298,6 +532,18 @@ async function handleLoginPage() {
       } catch (error) {
         setStatus(forgotMessage, error.message, "error");
       }
+    });
+  }
+
+  if (demoLoginBtn) {
+    demoLoginBtn.addEventListener("click", () => {
+      const demoState = getDemoState();
+      localStorage.setItem(API.demoKey, "1");
+      API.setSession({
+        token: "demo-token",
+        user: demoState.user
+      });
+      window.location.href = "new-order.html";
     });
   }
 }
@@ -414,6 +660,8 @@ async function handleAdminPage() {
       setText("[data-admin-orders]", String(data.stats.orders));
       setText("[data-admin-tickets]", String(data.stats.tickets));
       setText("[data-admin-funds]", String(data.stats.fundRequests));
+      setText("[data-admin-total-balance]", `Rs ${Number(data.stats.totalBalance || 0).toFixed(2)}`);
+      setText("[data-admin-total-spend]", `Rs ${Number(data.stats.totalSpend || 0).toFixed(2)}`);
 
       const ordersBody = document.querySelector(".data-table tbody");
       const ordersEmpty = document.querySelector("[data-admin-orders-empty]");
@@ -430,8 +678,8 @@ async function handleAdminPage() {
               <td>#${escapeHtml(order.id)}</td>
               <td>${escapeHtml(order.userId)}</td>
               <td>${escapeHtml(order.service)}</td>
-              <td>${escapeHtml(order.status)}</td>
-              <td>Internal</td>
+              <td><span class="status-badge ${getStatusClass(order.status)}">${escapeHtml(order.status)}</span></td>
+              <td>${escapeHtml(order.providerName || "Manual")}</td>
             </tr>
           `).join("");
           if (ordersEmpty) {
@@ -452,7 +700,7 @@ async function handleAdminPage() {
               <li style="padding: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: start;">
                   <div>
-                    <strong style="color: ${statusColor};">#${ticket.id} – ${escapeHtml(ticket.status)}</strong><br>
+                    <strong style="color: ${statusColor};">#${ticket.id} â€“ ${escapeHtml(ticket.status)}</strong><br>
                     <strong>${escapeHtml(ticket.subject)}</strong>
                     <p style="margin: 5px 0; font-size: 0.9rem; color: var(--muted);">${escapeHtml(ticket.message)}</p>
                     ${ticket.replies ? ticket.replies.map(r => `
@@ -492,7 +740,9 @@ async function handleAdminPage() {
                   <span style="display: block;">@${escapeHtml(user.username || "unknown")}</span>
                   <small style="display: block; color: var(--text-gray);">${escapeHtml(user.email || "No email")}</small>
                   <small style="display: block; color: var(--text-gray);">Login: <strong>${user.provider === "google" ? "Google" : "Normal"}</strong></small>
-                  <small style="display: block; color: var(--text-gray);">Total Fund: <strong>Rs ${Number(user.balance || 0).toFixed(2)}</strong></small>
+                  <small style="display: block; color: var(--text-gray);">Current Balance: <strong>Rs ${Number(user.balance || 0).toFixed(2)}</strong></small>
+                  <small style="display: block; color: var(--text-gray);">Total Spend: <strong>Rs ${Number(user.totalSpend || 0).toFixed(2)}</strong></small>
+                  <small style="display: block; color: var(--text-gray);">Total Funds Added: <strong>Rs ${Number(user.totalFundsAdded || 0).toFixed(2)}</strong></small>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px; min-width: 115px;">
                   <button class="primary-btn mini" style="background: var(--blue);" onclick="adminEditUserFund('${escapeHtml(user.id)}', ${Number(user.balance || 0)})">Edit Fund</button>
@@ -524,9 +774,9 @@ async function handleAdminPage() {
               <li style="padding: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: start;">
                   <div>
-                    <strong>Rs ${escapeHtml(item.amount)} • <span style="color: ${isPending ? '#f39c12' : (item.status === 'Approved' ? '#27ae60' : '#e74c3c')}">${escapeHtml(item.status)}</span></strong><br>
+                    <strong>Rs ${escapeHtml(item.amount)} â€¢ <span style="color: ${isPending ? '#f39c12' : (item.status === 'Approved' ? '#27ae60' : '#e74c3c')}">${escapeHtml(item.status)}</span></strong><br>
                     <small style="display: block; margin-top: 4px; color: var(--text-gray);">User: ${escapeHtml(userLabel)}</small>
-                    <small style="display: block; color: var(--text-gray);">Method: ${escapeHtml(item.method)} • TRX: <strong>${escapeHtml(item.reference || 'N/A')}</strong></small>
+                    <small style="display: block; color: var(--text-gray);">Method: ${escapeHtml(item.method)} â€¢ TRX: <strong>${escapeHtml(item.reference || 'N/A')}</strong></small>
                     <small style="display: block; color: var(--text-gray); font-size: 0.75rem;">${formatDate(item.createdAt)}</small>
                   </div>
                   ${isPending ? `
@@ -566,7 +816,7 @@ async function handleAdminPage() {
                   </div>
                   ${t.id === active ? `
                     <div style="position: absolute; top: -10px; right: -10px; background: var(--accent); color: white; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                      ✓
+                      âœ“
                     </div>
                   ` : ''}
                 </div>
@@ -595,7 +845,7 @@ async function handleAdminPage() {
         
         if (selected) {
           if (detailId) detailId.textContent = selected.id;
-          if (detailRate) detailRate.textContent = `₹${Number(selected.ratePer1000).toFixed(4)}`;
+          if (detailRate) detailRate.textContent = `â‚¹${Number(selected.ratePer1000).toFixed(4)}`;
           if (detailLimit) detailLimit.textContent = `${selected.min} / ${selected.max}`;
           if (detailDesc) detailDesc.textContent = selected.desc || "No description available.";
           
@@ -668,7 +918,7 @@ async function handleAdminPage() {
         if (newCategory === null) return;
         const newName = prompt("Enter new service name:", selected.name);
         if (newName === null) return;
-        const newRate = prompt("Enter new rate per 1000 (₹):", selected.ratePer1000);
+        const newRate = prompt("Enter new rate per 1000 (â‚¹):", selected.ratePer1000);
         if (newRate === null) return;
 
         try {
@@ -716,7 +966,7 @@ async function handleAdminPage() {
         } catch (error) { alert(error.message); }
       };
 
-      // ── Popular Categories Checkboxes ──
+      // â”€â”€ Popular Categories Checkboxes â”€â”€
       const popularBox = document.getElementById("popular-categories-checkboxes");
       if (popularBox) {
         try {
@@ -739,6 +989,17 @@ async function handleAdminPage() {
         } catch {
           if (popularBox) popularBox.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;">Login as admin to manage popular categories.</p>`;
         }
+      }
+
+      const referralStats = document.querySelector("[data-admin-referral-stats]");
+      if (referralStats && data.referralOverview) {
+        referralStats.innerHTML = `
+          <div class="admin-inline-metrics">
+            <span>Total Commission: <strong>Rs ${Number(data.referralOverview.totalCommissions || 0).toFixed(2)}</strong></span>
+            <span>Pending: <strong>Rs ${Number(data.referralOverview.pendingCommissions || 0).toFixed(2)}</strong></span>
+            <span>Paid Out: <strong>Rs ${Number(data.referralOverview.totalPayouts || 0).toFixed(2)}</strong></span>
+          </div>
+        `;
       }
 
     } catch (error) {
@@ -779,7 +1040,7 @@ async function handleAdminPage() {
         <tr>
           <td><strong>${escapeHtml(p.name)}</strong></td>
           <td style="font-size: 0.8rem; color: var(--text-gray);">${escapeHtml(p.url)}</td>
-          <td style="text-align: center; font-weight: bold; color: var(--blue);">1$ = ₹${p.exchangeRate || 1}</td>
+          <td style="text-align: center; font-weight: bold; color: var(--blue);">1$ = â‚¹${p.exchangeRate || 1}</td>
           <td style="text-align: center; font-weight: bold; color: var(--green);">${p.margin}%</td>
           <td>
             <div style="display: flex; gap: 5px; justify-content: center;">
@@ -861,9 +1122,42 @@ async function handleAdminPage() {
     } catch (err) { setStatus(providerStatus, err.message, "error"); }
   };
 
+  window.adminProcessReferralPayouts = async () => {
+    if (!confirm("Process weekly referral payouts now?")) return;
+    try {
+      const res = await API.request("/api/admin/referrals/payouts/process", {
+        method: "POST",
+        admin: true
+      });
+      alert(res.message);
+      if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  window.adminSyncOrderStatuses = async () => {
+    try {
+      const res = await API.request("/api/admin/orders/sync-status", {
+        method: "POST",
+        admin: true
+      });
+      setStatus(providerStatus, res.message, "success");
+      if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+    } catch (err) {
+      setStatus(providerStatus, err.message, "error");
+    }
+  };
+
   if (API.adminToken) {
     await window.refreshAdminDashboard();
     await loadProviders();
+    window.setInterval(async () => {
+      try {
+        await window.refreshAdminDashboard();
+      } catch {
+      }
+    }, 20000);
   } else {
     showGate();
   }
@@ -896,6 +1190,11 @@ async function handlePanelUser() {
 
   setText("[data-username]", user.username);
   setText("[data-balance]", `Rs ${Number(user.balance || 0).toFixed(2)}`);
+  setText("[data-order-count]", String(user.totalOrders || 0));
+  const spendNode = document.querySelector("[data-total-spend]");
+  if (spendNode) {
+    spendNode.textContent = `Rs ${Number(user.totalSpend || 0).toFixed(2)}`;
+  }
 }
 
 async function loadPopularCategories() {
@@ -923,23 +1222,68 @@ async function loadPopularCategories() {
       const badge = badges[i] || "Popular";
       const serviceCount = catServices.length;
       const minRate = catServices.length ? Math.min(...catServices.map(s => s.ratePer1000)) : 0;
+      const inferredApp = (cat.match(/instagram|youtube|telegram|facebook|twitter|tiktok|spotify/i) || ["all"])[0].toLowerCase();
 
       return `
-        <article class="recent-order-card" style="cursor:pointer;" onclick="window.location.href='new-order.html'">
+        <article class="recent-order-card" style="cursor:pointer;" onclick="window.location.href='new-order.html?app=${escapeHtml(inferredApp)}'">
           <div class="recent-order-top">
             <div class="recent-order-id"><span class="doc-icon">${escapeHtml(icon)}</span><span>${escapeHtml(cat)}</span></div>
             <span class="complete-pill">${badge}</span>
           </div>
           <div class="recent-order-body">
             <div class="order-row"><span>Services:</span><span class="value">${serviceCount} available</span></div>
-            <div class="order-row"><span>Starting from:</span><span class="value">₹${minRate > 0 ? minRate.toFixed(2) : "—"} / 1000</span></div>
-            <div class="order-row"><span>Action:</span><span class="value" style="color:var(--accent);">Click to order →</span></div>
+            <div class="order-row"><span>Starting from:</span><span class="value">â‚¹${minRate > 0 ? minRate.toFixed(2) : "â€”"} / 1000</span></div>
+            <div class="order-row"><span>Action:</span><span class="value" style="color:var(--accent);">Click to order â†’</span></div>
           </div>
         </article>
       `;
     }).join("");
   } catch {
     container.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:10px 0;">Could not load categories.</p>`;
+  }
+}
+
+async function handleReferralPanel() {
+  const card = document.querySelector("[data-referral-card]");
+  if (!card || !API.token) return;
+
+  try {
+    const data = await API.request("/api/referrals/me");
+    card.hidden = false;
+    const codeEl = card.querySelector("[data-referral-code]");
+    const linkEl = card.querySelector("[data-referral-link]");
+    const visitsEl = card.querySelector("[data-referral-visits]");
+    const regsEl = card.querySelector("[data-referral-registrations]");
+    const convEl = card.querySelector("[data-referral-conversion]");
+    const earnEl = card.querySelector("[data-referral-earnings]");
+    const paidEl = card.querySelector("[data-referral-paid]");
+    const limitEl = card.querySelector("[data-referral-min-payout]");
+    const payoutListEl = card.querySelector("[data-referral-payouts]");
+
+    if (codeEl) codeEl.textContent = data.referralCode || "N/A";
+    if (linkEl) linkEl.textContent = data.referralLink || "-";
+    if (visitsEl) visitsEl.textContent = String(data.stats?.visits || 0);
+    if (regsEl) regsEl.textContent = String(data.stats?.registrations || 0);
+    if (convEl) convEl.textContent = `${Number(data.stats?.conversionRate || 0).toFixed(2)}%`;
+    if (earnEl) earnEl.textContent = `Rs ${Number(data.stats?.approvedEarnings || 0).toFixed(2)}`;
+    if (paidEl) paidEl.textContent = `Rs ${Number(data.stats?.paidEarnings || 0).toFixed(2)}`;
+    if (limitEl) limitEl.textContent = `Rs ${Number(data.stats?.minPayout || 500).toFixed(2)}`;
+
+    if (payoutListEl) {
+      const payouts = data.payouts || [];
+      if (!payouts.length) {
+        payoutListEl.innerHTML = `<li><strong>No payouts yet</strong><span>Weekly payouts will appear here once minimum payout is reached.</span></li>`;
+      } else {
+        payoutListEl.innerHTML = payouts.slice(0, 5).map((item) => `
+          <li>
+            <strong>Rs ${Number(item.amount || 0).toFixed(2)} (${escapeHtml(item.status || "Paid")})</strong>
+            <span>${formatDate(item.paidAt || item.createdAt)}</span>
+          </li>
+        `).join("");
+      }
+    }
+  } catch {
+    card.hidden = true;
   }
 }
 
@@ -962,7 +1306,7 @@ async function handleOrderPage() {
   }
 
   async function loadOrders() {
-    const data = await API.request("/api/orders");
+    const data = await API.request("/api/orders?sync=1");
     const orders = data.orders;
 
     if (orderCount) {
@@ -997,7 +1341,7 @@ async function handleOrderPage() {
           <article class="recent-order-card">
             <div class="recent-order-top">
               <div class="recent-order-id"><span class="doc-icon">ID</span><span>#${order.id}</span></div>
-              <span class="complete-pill">${order.status}</span>
+              <span class="complete-pill ${getStatusClass(order.status)}">${order.status}</span>
             </div>
             <div class="recent-order-body">
               <div class="order-row"><span>Service:</span><span class="value">${order.service}</span></div>
@@ -1027,7 +1371,7 @@ async function handleOrderPage() {
             <td>${formatDate(order.createdAt)}</td>
             <td>${order.service}</td>
             <td>${order.target}</td>
-            <td>${order.status}</td>
+            <td><span class="status-badge ${getStatusClass(order.status)}">${order.status}</span></td>
             <td>Rs ${order.charge}</td>
           </tr>
         `).join("");
@@ -1048,17 +1392,52 @@ async function handleOrderPage() {
     const submitBtn = form.querySelector(".order-submit");
     const submitText = submitBtn ? submitBtn.querySelector("small") : null;
     let servicesData = [];
+    let selectedAppFilter = "all";
+
+    const appChips = Array.from(document.querySelectorAll("[data-app-filter]"));
+    const urlApp = String(new URLSearchParams(window.location.search).get("app") || "").trim().toLowerCase();
+    if (urlApp) selectedAppFilter = urlApp;
+
+    function isServiceAllowedByApp(service) {
+      if (selectedAppFilter === "all") return true;
+      const haystack = `${service.category} ${service.name}`.toLowerCase();
+      return haystack.includes(selectedAppFilter);
+    }
+
+    function renderCategories() {
+      if (!categorySelect) return;
+      const allCategories = [...new Set(servicesData.filter(isServiceAllowedByApp).map((s) => s.category))];
+      categorySelect.innerHTML = `<option value="">Select Category</option>` +
+        allCategories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+      if (!allCategories.length) {
+        categorySelect.innerHTML = `<option value="">No categories for selected app</option>`;
+      }
+      if (serviceSelect) {
+        serviceSelect.innerHTML = `<option value="">Select Service</option>`;
+      }
+      updateServiceInfo();
+    }
+
+    function highlightAppFilter() {
+      appChips.forEach((chip) => {
+        const app = String(chip.dataset.appFilter || "all").toLowerCase();
+        chip.classList.toggle("active", app === selectedAppFilter);
+      });
+    }
+
+    appChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        selectedAppFilter = String(chip.dataset.appFilter || "all").toLowerCase();
+        highlightAppFilter();
+        renderCategories();
+      });
+    });
 
     try {
       const { services } = await API.request("/api/services");
       servicesData = services || [];
-      const categories = [...new Set(servicesData.map(s => s.category))];
-      if (categorySelect && categories.length) {
-        categorySelect.innerHTML = `<option value="">Select Category</option>` + 
-          categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
-      } else if (categorySelect) {
-        categorySelect.innerHTML = `<option value="">No services available</option>`;
-      }
+      highlightAppFilter();
+      renderCategories();
     } catch {}
 
     function updateServiceInfo() {
@@ -1068,7 +1447,7 @@ async function handleOrderPage() {
       if (selected) {
         if (minText) minText.textContent = selected.min;
         if (maxText) maxText.textContent = selected.max;
-        if (rateText) rateText.textContent = `₹${Number(selected.ratePer1000).toFixed(2)}`;
+        if (rateText) rateText.textContent = `â‚¹${Number(selected.ratePer1000).toFixed(2)}`;
         if (descText) descText.textContent = selected.desc || "No additional details available.";
         if (quantityInput) {
           quantityInput.min = selected.min;
@@ -1091,7 +1470,7 @@ async function handleOrderPage() {
       const q = quantityInput ? Number(quantityInput.value) : 1000;
       if (selected && submitText) {
         const total = (q / 1000) * selected.ratePer1000;
-        submitText.textContent = `TOTAL AMOUNT: ₹${total.toFixed(2)}`;
+        submitText.textContent = `TOTAL AMOUNT: â‚¹${total.toFixed(2)}`;
       } else if (submitText) {
         submitText.textContent = `TOTAL AMOUNT`;
       }
@@ -1100,7 +1479,7 @@ async function handleOrderPage() {
     if (categorySelect && serviceSelect) {
       categorySelect.addEventListener("change", () => {
         const cat = categorySelect.value;
-        const matching = servicesData.filter(s => s.category === cat);
+        const matching = servicesData.filter((s) => s.category === cat && isServiceAllowedByApp(s));
         serviceSelect.innerHTML = `<option value="">Select Service</option>` + 
           matching.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("");
         updateServiceInfo();
@@ -1139,7 +1518,7 @@ async function handleOrderPage() {
           })
         });
 
-        // ✅ Instantly update balance on screen after deduction
+        // âœ… Instantly update balance on screen after deduction
         if (result.balance !== undefined) {
           setText("[data-balance]", `Rs ${Number(result.balance).toFixed(2)}`);
           // Also update cached user so other pages are consistent
@@ -1156,15 +1535,25 @@ async function handleOrderPage() {
         form.querySelector("[name='target']").value = "";
 
         const statusMsg = result.order?.providerOrderId
-          ? `✅ Order placed & sent to provider!\nProvider Order ID: ${result.order.providerOrderId}\nCharged: ₹${result.order.charge}`
-          : `✅ Order placed successfully!\nOrder ID: ${result.order?.id}\nCharged: ₹${result.order?.charge}`;
+          ? `âœ… Order placed & sent to provider!\nProvider Order ID: ${result.order.providerOrderId}\nCharged: â‚¹${result.order.charge}`
+          : `âœ… Order placed successfully!\nOrder ID: ${result.order?.id}\nCharged: â‚¹${result.order?.charge}`;
         alert(statusMsg);
       } catch (error) {
-        alert("❌ " + error.message);
+        alert("âŒ " + error.message);
       } finally {
         submitRealBtn.disabled = false;
       }
     });
+  }
+
+  if (recentList || orderTable) {
+    window.setInterval(async () => {
+      try {
+        await loadOrders();
+      } catch {
+        // Ignore refresh failures and keep previous UI values.
+      }
+    }, 15000);
   }
 }
 
@@ -1262,7 +1651,7 @@ async function handleFundsPage() {
     list.innerHTML = data.fundRequests.map((item) => `
       <li>
         <strong>Rs ${item.amount} ${item.status.toLowerCase()}</strong>
-        <span>${item.method} • ${formatDate(item.createdAt)}</span>
+        <span>${item.method} â€¢ ${formatDate(item.createdAt)}</span>
       </li>
     `).join("");
   }
@@ -1343,8 +1732,8 @@ async function handleAccountPage() {
   // Fill session info in logout card
   const sessionUsername = document.querySelector("[data-session-username]");
   const sessionEmail = document.querySelector("[data-session-email]");
-  if (sessionUsername) sessionUsername.textContent = "@" + (user.username || "—");
-  if (sessionEmail) sessionEmail.textContent = user.email || "—";
+  if (sessionUsername) sessionUsername.textContent = "@" + (user.username || "â€”");
+  if (sessionEmail) sessionEmail.textContent = user.email || "â€”";
 
   const statusEl = document.querySelector("[data-account-status]");
 
@@ -1365,11 +1754,11 @@ async function handleAccountPage() {
       API.setSession(data);
 
       // Update session info card with new email
-      if (sessionEmail && data.user) sessionEmail.textContent = data.user.email || "—";
+      if (sessionEmail && data.user) sessionEmail.textContent = data.user.email || "â€”";
 
-      if (statusEl) setStatus(statusEl, "✅ Profile updated successfully!", "success");
+      if (statusEl) setStatus(statusEl, "âœ… Profile updated successfully!", "success");
     } catch (error) {
-      if (statusEl) setStatus(statusEl, "❌ " + error.message, "error");
+      if (statusEl) setStatus(statusEl, "âŒ " + error.message, "error");
     } finally {
       submitBtn.disabled = false;
     }
@@ -1408,9 +1797,9 @@ window.adminSavePopularCategories = async function() {
       admin: true,
       body: JSON.stringify({ categories: checked })
     });
-    if (statusEl) setStatus(statusEl, "✅ " + res.message, "success");
+    if (statusEl) setStatus(statusEl, "âœ… " + res.message, "success");
   } catch (err) {
-    if (statusEl) setStatus(statusEl, "❌ " + err.message, "error");
+    if (statusEl) setStatus(statusEl, "âŒ " + err.message, "error");
   }
 };
 
@@ -1420,7 +1809,7 @@ window.editService = async function(id, currentCategory, currentName, currentRat
   if (newCategory === null) return;
   const newName = prompt("Enter new service name:", currentName);
   if (newName === null) return;
-  const newRate = prompt("Enter new rate per 1000 (₹):", currentRate);
+  const newRate = prompt("Enter new rate per 1000 (â‚¹):", currentRate);
   if (newRate === null) return;
 
   try {
@@ -1575,7 +1964,7 @@ async function updateSupportBadge() {
   if (!API.token) return;
   try {
     const data = await API.request("/api/tickets");
-    // Count tickets that are Open or Answered (active — not Closed)
+    // Count tickets that are Open or Answered (active â€” not Closed)
     const activeCount = (data.tickets || []).filter(
       t => t.status === "Open" || t.status === "Answered" || t.status === "In Progress"
     ).length;
@@ -1611,4 +2000,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   handleLogout();
   await updateSupportBadge();
   await loadPopularCategories();
+  await handleReferralPanel();
 });
+
+
+
+
+

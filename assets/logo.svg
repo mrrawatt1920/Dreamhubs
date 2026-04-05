@@ -1,0 +1,23 @@
+﻿<svg width="460" height="120" viewBox="0 0 460 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="18" y1="12" x2="102" y2="98" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2ECC71"/>
+      <stop offset="1" stop-color="#16A085"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="170" y1="28" x2="430" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#CFE8FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="100" height="100" rx="26" fill="url(#g1)"/>
+  <path d="M32 78V42h15.2c6.8 0 11.8 1.2 15 3.6 3.2 2.4 4.8 6 4.8 10.8 0 5.1-1.6 9-4.9 11.6-3.2 2.6-8.2 4-15 4H42V78H32zm10-14h5.4c3.5 0 6.1-.6 7.7-1.8 1.6-1.2 2.4-3.1 2.4-5.7 0-2.5-.8-4.3-2.5-5.4-1.6-1.1-4.2-1.6-7.7-1.6H42v14.5z" fill="white"/>
+  <path d="M73 78V42h10v28h17v8H73z" fill="white"/>
+  <path d="M154 83V34h28.8c8 0 14 1.7 18.1 5.2 4.1 3.4 6.1 8.4 6.1 14.9 0 6.4-2 11.4-6.1 14.9-4.1 3.4-10.1 5.2-18.1 5.2h-15.4V83H154zm13.4-20h13.8c4.2 0 7.4-.8 9.6-2.4 2.2-1.6 3.3-3.9 3.3-7.1s-1.1-5.5-3.3-7.1c-2.2-1.6-5.4-2.4-9.6-2.4h-13.8v19z" fill="url(#g2)"/>
+  <path d="M216 83V34h13.4v49H216z" fill="url(#g2)"/>
+  <path d="M240 83V34h10.9l24.2 30.8V34h13.1v49h-10.4l-24.7-31.6V83H240z" fill="url(#g2)"/>
+  <path d="M299 83V34h13.4v40.5h24.9V83H299z" fill="url(#g2)"/>
+  <path d="M344 83V34h13.4v49H344z" fill="url(#g2)"/>
+  <path d="M367 83V34h14l12.9 33.3L407 34h13.6l-20.7 49h-12.8L367 34z" fill="url(#g2)"/>
+  <path d="M425 83V34h35v9.9h-21.8v9.2h19.3V63h-19.3v10h22.6V83H425z" fill="url(#g2)"/>
+</svg>
+
