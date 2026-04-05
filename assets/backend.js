@@ -1,4 +1,4 @@
-﻿const API = {
+const API = {
   tokenKey: "dreamhubs-token",
   userKey: "dreamhubs-user",
   adminTokenKey: "dreamhubs-admin-token",
@@ -215,31 +215,7 @@ async function demoRequest(path, options = {}) {
   if (cleanPath === "/api/orders" && method === "GET") return { orders: state.orders };
 
   if (cleanPath === "/api/orders" && method === "POST") {
-    const quantity = Number(body.quantity || 0);
-    const rate = Number(body.ratePer1000 || 0);
-    const charge = Number(((quantity / 1000) * rate).toFixed(2));
-    if (state.user.balance < charge) throw new Error("Insufficient balance (demo).");
-
-    state.user.balance = Number((state.user.balance - charge).toFixed(2));
-    state.user.totalSpend = Number((state.user.totalSpend + charge).toFixed(2));
-    state.user.totalOrders += 1;
-
-    const order = {
-      id: `DH${9000 + state.orders.length + 1}`,
-      service: body.service,
-      category: body.category,
-      target: body.target,
-      quantity,
-      charge,
-      status: "Processing",
-      startCount: 0,
-      remains: quantity,
-      createdAt: new Date().toISOString()
-    };
-    state.orders.unshift(order);
-    setDemoState(state);
-    localStorage.setItem(API.userKey, JSON.stringify(state.user));
-    return { order, balance: state.user.balance };
+    throw new Error("Please login first to place an order.");
   }
 
   if (cleanPath === "/api/popular-categories" && method === "GET") {
@@ -247,29 +223,12 @@ async function demoRequest(path, options = {}) {
   }
   if (cleanPath === "/api/tickets" && method === "GET") return { tickets: state.tickets };
   if (cleanPath === "/api/tickets" && method === "POST") {
-    state.tickets.unshift({
-      id: `T${100 + state.tickets.length}`,
-      subject: body.subject || "Demo Ticket",
-      message: body.message || "",
-      status: "Open",
-      createdAt: new Date().toISOString()
-    });
-    setDemoState(state);
-    return { ticket: state.tickets[0] };
+    throw new Error("Please login first to create tickets.");
   }
 
   if (cleanPath === "/api/funds" && method === "GET") return { fundRequests: state.funds, balance: state.user.balance };
   if (cleanPath === "/api/funds" && method === "POST") {
-    state.funds.unshift({
-      id: `F${100 + state.funds.length}`,
-      amount: Number(body.amount || 0),
-      method: body.method || "UPI",
-      reference: body.reference || "DEMO",
-      status: "Pending",
-      createdAt: new Date().toISOString()
-    });
-    setDemoState(state);
-    return { fundRequest: state.funds[0] };
+    throw new Error("Please login first to add funds.");
   }
 
   if (cleanPath === "/api/referrals/me" && method === "GET") {
@@ -305,15 +264,38 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function setStatus(element, message, tone = "") {
-  if (!element) {
-    return;
+function showToast(message, type = "info") {
+  if (!message) return;
+  let container = document.querySelector(".toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "toast-container";
+    document.body.appendChild(container);
   }
+  
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+  
+  // Trigger animation
+  requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add("show")));
+  
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
 
-  element.textContent = message;
-  element.classList.remove("success", "error", "info");
-  if (tone) {
-    element.classList.add(tone);
+function setStatus(element, message, tone = "") {
+  if (element && message) {
+    element.textContent = message;
+    element.classList.remove("success", "error", "info");
+    if (tone) element.classList.add(tone);
+  }
+  
+  if (message) {
+    showToast(message, tone || "info");
   }
 }
 
@@ -387,7 +369,7 @@ async function handleRegisterPage() {
     }
 
     const submitButton = form.querySelector("button[type='submit']");
-    submitButton.disabled = true;
+    setButtonLoading(submitButton, true);
     setStatus(status, "Creating your account...", "info");
 
     try {
@@ -401,7 +383,7 @@ async function handleRegisterPage() {
     } catch (error) {
       setStatus(status, error.message, "error");
     } finally {
-      submitButton.disabled = false;
+      setButtonLoading(submitButton, false);
     }
   });
 }
@@ -480,7 +462,7 @@ async function handleLoginPage() {
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const submitButton = loginForm.querySelector("button[type='submit']");
-      submitButton.disabled = true;
+      setButtonLoading(submitButton, true);
       setStatus(loginStatus, "Signing you in...", "info");
       try {
         const data = await API.request("/api/auth/login", {
@@ -496,7 +478,7 @@ async function handleLoginPage() {
       } catch (error) {
         setStatus(loginStatus, error.message, "error");
       } finally {
-        submitButton.disabled = false;
+        setButtonLoading(submitButton, false);
       }
     });
   }
@@ -561,7 +543,7 @@ async function handleResetPasswordPage() {
 
   if (!token) {
     setStatus(status, "This reset link is invalid or has expired.", "error");
-    submitButton.disabled = true;
+    setButtonLoading(submitButton, true);
     return;
   }
 
@@ -570,7 +552,7 @@ async function handleResetPasswordPage() {
     setStatus(status, data.message || "This reset link is valid for 5 minutes.", "info");
   } catch (error) {
     setStatus(status, error.message, "error");
-    submitButton.disabled = true;
+    setButtonLoading(submitButton, true);
     return;
   }
 
@@ -613,7 +595,7 @@ async function handleForgotPage() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitButton = form.querySelector("button[type='submit']");
-    submitButton.disabled = true;
+    setButtonLoading(submitButton, true);
     setStatus(status, "Sending reset link...", "info");
     try {
       const data = await API.request("/api/auth/forgot-password", {
@@ -627,7 +609,7 @@ async function handleForgotPage() {
     } catch (error) {
       setStatus(status, error.message, "error");
     } finally {
-      submitButton.disabled = false;
+      setButtonLoading(submitButton, false);
     }
   });
 }
@@ -1318,23 +1300,11 @@ async function handleOrderPage() {
 
       if (!orders.length) {
         recentList.innerHTML = `
-          <article class="recent-order-card">
-            <div class="recent-order-top">
-              <div class="recent-order-id"><span class="doc-icon">ID</span><span>No orders yet</span></div>
-              <span class="complete-pill">Empty</span>
-            </div>
-            <div class="recent-order-body">
-              <div class="order-row"><span>Service:</span><span class="value">No service selected</span></div>
-              <div class="order-row"><span>Link:</span><span class="value">No link submitted</span></div>
-              <div class="order-row"><span>Price:</span><span class="value">0</span></div>
-              <div class="order-row"><span>Quantity:</span><span class="value">0</span></div>
-            </div>
-            <div class="recent-date">Date: No order placed yet</div>
-            <div class="metrics-bottom">
-              <div class="metric-box"><span>START COUNT</span><strong>0</strong></div>
-              <div class="metric-box"><span>REMAINS</span><strong>0</strong></div>
-            </div>
-          </article>
+          <div class="empty-state">
+            <svg fill="currentColor" viewBox="0 0 24 24" width="48" height="48"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v2h2v5h2v-5h2v-2z"></path></svg>
+            <strong>No Orders Yet</strong>
+            <span>Your recent panel activity will appear here.</span>
+          </div>
         `;
       } else {
         recentList.innerHTML = orders.slice(0, 5).map((order) => `
@@ -1363,7 +1333,7 @@ async function handleOrderPage() {
       orderTable.innerHTML = "";
 
       if (!orders.length) {
-        orderTable.innerHTML = `<tr><td colspan="6">No orders found.</td></tr>`;
+        orderTable.innerHTML = `<tr><td colspan="6"><div class="empty-state"><svg fill="currentColor" viewBox="0 0 24 24" width="48" height="48"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v2h2v5h2v-5h2v-2z"></path></svg><strong>No Orders Found</strong><span>You haven't placed any orders yet.</span></div></td></tr>`;
       } else {
         orderTable.innerHTML = orders.map((order) => `
           <tr>
@@ -1690,7 +1660,7 @@ async function handleFundsPage() {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const submitButton = form.querySelector("button[type='submit']");
-      submitButton.disabled = true;
+      setButtonLoading(submitButton, true);
       try {
         await API.request("/api/funds", {
           method: "POST",
@@ -1707,7 +1677,7 @@ async function handleFundsPage() {
       } catch (error) {
         alert(error.message);
       } finally {
-        submitButton.disabled = false;
+        setButtonLoading(submitButton, false);
       }
     });
   }
@@ -1985,7 +1955,32 @@ async function updateSupportBadge() {
   }
 }
 
+function setButtonLoading(btn, isLoading) {
+  if (!btn) return;
+  if (isLoading) {
+    if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+    btn.innerHTML = `<span class="btn-spinner"></span> ${btn.textContent}`;
+    btn.disabled = true;
+  } else {
+    if (btn.dataset.originalText) btn.innerHTML = btn.dataset.originalText;
+    btn.disabled = false;
+  }
+}
+
+function highlightActiveSidebar() {
+  const currentPath = window.location.pathname.split("/").pop() || "index.html";
+  document.querySelectorAll(".sidebar-nav a").forEach(link => {
+    const linkPath = link.getAttribute("href");
+    if (linkPath && currentPath.includes(linkPath)) {
+      link.classList.add("active");
+    } else {
+      link.classList.remove("active");
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  highlightActiveSidebar();
   await API.syncTheme();
   await handleRegisterPage();
   await handleLoginPage();

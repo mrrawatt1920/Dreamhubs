@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: light;
   --bg: #f5f1e8;
   --bg-soft: #fffaf0;
@@ -1356,3 +1356,116 @@ button.filter-chip {
   }
 }
 
+/* UX/UI Improvements Added Below */
+
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--surface-strong);
+  color: var(--text);
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+  pointer-events: auto;
+}
+
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast.error {
+  border-left-color: #e74c3c;
+}
+
+.toast.success {
+  border-left-color: #2ecc71;
+}
+
+.toast.info {
+  border-left-color: #3498db;
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.primary-btn:disabled, .primary-btn[disabled] {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-state svg {
+  width: 48px;
+  height: 48px;
+  opacity: 0.5;
+  margin-bottom: 8px;
+}
+
+.empty-state strong {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.brand-loader-wrap {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--hero-gradient);
+  z-index: 10000;
+  gap: 20px;
+}
+
+.brand-loader {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
