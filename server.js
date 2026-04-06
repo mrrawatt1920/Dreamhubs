@@ -624,8 +624,21 @@ async function handleApi(req, res, url) {
     return send(res, 200, { message: "Verification email sent!" });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/auth/google-config") {
+    if (!GOOGLE_CLIENT_ID) {
+      return send(res, 503, { error: "Google login is not configured on server." });
+    }
+    return send(res, 200, { clientId: GOOGLE_CLIENT_ID });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/auth/google") {
     const { credential } = await parseBody(req);
+    if (!GOOGLE_CLIENT_ID || !googleClient) {
+      return send(res, 503, { error: "Google login is not configured on server." });
+    }
+    if (!credential) {
+      return send(res, 400, { error: "Google credential is missing." });
+    }
     try {
       const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
       const payload = ticket.getPayload();
@@ -640,7 +653,10 @@ async function handleApi(req, res, url) {
       const token = createSession(db, user.id);
       await writeDb(db);
       return send(res, 200, { token, user: withUserStats(db, user) });
-    } catch (e) { return send(res, 400, { error: "Google verification failed." }); }
+    } catch (e) {
+      console.error("[Google Auth] verifyIdToken failed:", e.message);
+      return send(res, 400, { error: "Google verification failed. Check server GOOGLE_CLIENT_ID." });
+    }
   }
 
   if (url.pathname === "/api/me") {
