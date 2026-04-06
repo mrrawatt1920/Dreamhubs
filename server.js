@@ -681,7 +681,21 @@ async function handleApi(req, res, url) {
     return send(res, 200, { referralCode: auth.user.referralCode, referralLink: `${APP_BASE_URL}/register.html?ref=${auth.user.referralCode}`, stats: stats.totals, commissions: stats.commissions });
   }
 
-  // Admin routes (shortened for space, restore if needed)
+  // Admin routes
+  if (req.method === "POST" && url.pathname === "/api/admin/login") {
+    const body = await parseBody(req);
+    const user = String(body.username || "").trim().toLowerCase();
+    const pass = String(body.password || "");
+
+    if (user === ADMIN_USERNAME && pass === ADMIN_PASSWORD) {
+      const db = await readDb();
+      const token = createAdminSession(db);
+      await writeDb(db);
+      return send(res, 200, { token, admin: sanitizeAdmin() });
+    }
+    return send(res, 401, { error: "Invalid admin credentials." });
+  }
+
   if (url.pathname.startsWith("/api/admin")) {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
