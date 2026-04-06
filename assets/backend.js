@@ -1167,18 +1167,33 @@ async function ensureAuth() {
 
 async function handlePanelUser() {
   const user = await ensureAuth();
-  if (!user) {
-    return;
-  }
+  if (!user) return;
 
   setText("[data-username]", user.username);
   setText("[data-balance]", `Rs ${Number(user.balance || 0).toFixed(2)}`);
   setText("[data-order-count]", String(user.totalOrders || 0));
   const spendNode = document.querySelector("[data-total-spend]");
-  if (spendNode) {
-    spendNode.textContent = `Rs ${Number(user.totalSpend || 0).toFixed(2)}`;
+  if (spendNode) spendNode.textContent = `Rs ${Number(user.totalSpend || 0).toFixed(2)}`;
+
+  // Verification Banner
+  const banner = document.getElementById("verifyBanner");
+  if (banner) {
+    banner.style.display = user.isEmailVerified ? "none" : "flex";
   }
 }
+
+window.resendVerification = async () => {
+  const btn = document.getElementById("resendBtn");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await API.request("/api/auth/resend-verification", { method: "POST" });
+    alert(res.message || "Verification email sent!");
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
 
 async function loadPopularCategories() {
   const container = document.querySelector("[data-popular-categories]");
@@ -1229,6 +1244,12 @@ async function loadPopularCategories() {
 async function handleReferralPanel() {
   const card = document.querySelector("[data-referral-card]");
   if (!card || !API.token) return;
+
+  const user = API.getUser();
+  if (!user || !user.isEmailVerified) {
+    card.hidden = true;
+    return;
+  }
 
   try {
     const data = await API.request("/api/referrals/me");
