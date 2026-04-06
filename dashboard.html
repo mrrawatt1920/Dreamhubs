@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -39,6 +39,16 @@
 
       <main class="user-main smm-main">
         <div class="smm-container">
+          <!-- Verification Banner -->
+          <div id="verifyBanner" style="display: none; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="background: #f59e0b; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">!</div>
+            <div style="flex-grow: 1;">
+              <h4 style="margin: 0; color: #92400e; font-size: 1rem;">Verify your email</h4>
+              <p style="margin: 4px 0 0; color: #b45309; font-size: 0.875rem;">Please verify your email address to unlock the Referral program and earn commissions.</p>
+            </div>
+            <button onclick="resendVerification()" id="resendBtn" style="background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.875rem; white-space: nowrap;">Resend Email</button>
+          </div>
+
           <section class="summary-strip">
             <div class="summary-card">
               <div class="summary-head">
