@@ -15,6 +15,12 @@
     radial-gradient(circle at top left, rgba(213, 93, 42, 0.28), transparent 32%),
     radial-gradient(circle at bottom right, rgba(17, 115, 94, 0.18), transparent 28%),
     linear-gradient(135deg, #f6efe2 0%, #f8f4ed 55%, #f1eadf 100%);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --transition-fast: 0.15s var(--ease);
+  --transition-smooth: 0.3s var(--ease);
+  --transition-slow: 0.5s var(--ease);
 }
 
 html[data-theme="dark"] {
@@ -132,13 +138,20 @@ select {
 .sidebar-nav a,
 .ghost-btn,
 .primary-btn,
-.theme-btn {
-  transition: 0.2s ease;
+.theme-btn,
+.card,
+.feature,
+.smm-card,
+.mini-chip,
+.filter-chip,
+.order-submit {
+  transition: all var(--transition-smooth);
 }
 
 .nav a,
 .sidebar-nav a {
   color: var(--muted);
+  position: relative;
 }
 
 .nav a:hover,
@@ -186,7 +199,19 @@ select {
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   border-color: transparent;
   color: white;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 24px var(--accent-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px var(--accent-soft);
+  opacity: 0.95;
+}
+
+.primary-btn:active {
+  transform: translateY(0);
 }
 
 .demo-login-btn {
@@ -288,7 +313,16 @@ h2 {
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.card:hover,
+.feature:hover,
+.smm-card:hover {
+  transform: translateY(-4px) scale(1.005);
+  box-shadow: 0 32px 80px rgba(74, 50, 24, 0.15);
+  border-color: var(--accent-soft);
 }
 
 .glass {
@@ -426,6 +460,23 @@ h2 {
 .cta-card {
   border-radius: 24px;
   padding: 24px;
+  animation: fadeInDown var(--transition-smooth) both;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseSoft {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
 }
 
 .panel-link {

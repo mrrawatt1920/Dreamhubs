@@ -651,8 +651,8 @@ async function handleAdminPage() {
       setText("[data-admin-orders]", String(data.stats.orders));
       setText("[data-admin-tickets]", String(data.stats.tickets));
       setText("[data-admin-funds]", String(data.stats.fundRequests));
-      setText("[data-admin-total-balance]", `Rs ${Number(data.stats.totalBalance || 0).toFixed(2)}`);
-      setText("[data-admin-total-spend]", `Rs ${Number(data.stats.totalSpend || 0).toFixed(2)}`);
+      setText("[data-admin-total-balance]", `₹${Number(data.stats.totalBalance || 0).toFixed(2)}`);
+      setText("[data-admin-total-spend]", `₹${Number(data.stats.totalSpend || 0).toFixed(2)}`);
 
       const ordersBody = document.querySelector(".data-table tbody");
       const ordersEmpty = document.querySelector("[data-admin-orders-empty]");
@@ -836,7 +836,7 @@ async function handleAdminPage() {
         
         if (selected) {
           if (detailId) detailId.textContent = selected.id;
-          if (detailRate) detailRate.textContent = `â‚¹${Number(selected.ratePer1000).toFixed(4)}`;
+          if (detailRate) detailRate.textContent = `₹${Number(selected.ratePer1000).toFixed(4)}`;
           if (detailLimit) detailLimit.textContent = `${selected.min} / ${selected.max}`;
           if (detailDesc) detailDesc.textContent = selected.desc || "No description available.";
           
