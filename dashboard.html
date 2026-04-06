@@ -1,84 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DreamHubs | Dashboard</title>
-    <link rel="stylesheet" href="assets/styles.css" />
-    <link rel="icon" href="assets/icon.png">
-  
-    <script>
-      if (!localStorage.getItem("dreamhubs-token")) {
-        window.location.replace("login.html");
-      }
-    </script>
-    <!-- Google tag (gtag.js) -->
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DreamHubs | Dashboard</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="icon" href="assets/icon.png">
+
+  <script>
+    if (!localStorage.getItem("dreamhubs-token")) {
+      window.location.replace("login.html");
+    }
+  </script>
+  <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-MX4VTG8NTL"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
+    function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
     gtag('config', 'G-MX4VTG8NTL');
   </script>
 </head>
-  <body class="panel-body">
-    <div class="user-layout smm-layout">
-      <aside class="user-sidebar">
-        <a class="brand smm-brand" href="index.html">
-          <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
-        </a>
-        <a class="smm-subbrand" href="about.html">ABOUT US</a>
-        <nav class="sidebar-nav">
-          <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span class="menu-arrow">></span></a>
-          <a href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span class="menu-arrow">></span></a>
-          <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count" data-support-badge hidden>0</span></span><span class="menu-arrow">></span></a>
-          <a href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span class="menu-arrow">></span></a>
-          <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span class="menu-arrow">></span></a>
-        </nav>
-      </aside>
 
-      <main class="user-main smm-main">
-        <div class="smm-container">
-          <!-- Verification Banner -->
-          <div id="verifyBanner" style="display: none; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="background: #f59e0b; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">!</div>
-            <div style="flex-grow: 1;">
-              <h4 style="margin: 0; color: #92400e; font-size: 1rem;">Verify your email</h4>
-              <p style="margin: 4px 0 0; color: #b45309; font-size: 0.875rem;">Please verify your email address to unlock the Referral program and earn commissions.</p>
-            </div>
-            <button onclick="resendVerification()" id="resendBtn" style="background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.875rem; white-space: nowrap;">Resend Email</button>
+<body class="panel-body">
+  <div class="user-layout smm-layout">
+    <aside class="user-sidebar">
+      <a class="brand smm-brand" href="index.html">
+        <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
+      </a>
+      <a class="smm-subbrand" href="about.html">ABOUT US</a>
+      <nav class="sidebar-nav">
+        <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span
+            class="menu-arrow">></span></a>
+        <a href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span
+            class="menu-arrow">></span></a>
+        <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count"
+              data-support-badge hidden>0</span></span><span class="menu-arrow">></span></a>
+        <a href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span
+            class="menu-arrow">></span></a>
+        <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span
+            class="menu-arrow">></span></a>
+      </nav>
+    </aside>
+
+    <main class="user-main smm-main">
+      <div class="smm-container">
+        <!-- Verification Banner -->
+        <div id="verifyBanner"
+          style="display: none; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          <div
+            style="background: #f59e0b; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
+            !</div>
+          <div style="flex-grow: 1;">
+            <h4 style="margin: 0; color: #92400e; font-size: 1rem;">Verify your email</h4>
+            <p style="margin: 4px 0 0; color: #b45309; font-size: 0.875rem;">Please verify your email address to unlock
+              the Referral program and earn commissions.</p>
           </div>
+          <button onclick="resendVerification()" id="resendBtn"
+            style="background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.875rem; white-space: nowrap;">Resend
+            Email</button>
+        </div>
 
-          <section class="summary-strip">
-            <div class="summary-card">
-              <div class="summary-head">
-                <div class="summary-welcome">
-                  <small>Welcome,</small>
-                  <strong data-username>Your username</strong>
-                </div>
-                <div class="summary-actions">
-                  <a class="mini-chip" href="add-funds.html">Add Funds</a>
-                </div>
+        <section class="summary-strip">
+          <div class="summary-card">
+            <div class="summary-head">
+              <div class="summary-welcome">
+                <small>Welcome,</small>
+                <strong data-username>Your username</strong>
               </div>
-              <div class="summary-metrics">
-                <div class="summary-mini">
-                  <span>Balance</span>
-                  <strong data-balance>Rs 0.00</strong>
-                </div>
-                <div class="summary-mini">
-                  <span>Total Spend</span>
-                  <strong data-total-spend>Rs 0.00</strong>
-                </div>
-                <div class="summary-mini">
-                  <span>Your Orders</span>
-                  <strong data-order-count>0</strong>
-                </div>
+              <div class="summary-actions">
+                <a class="mini-chip" href="add-funds.html">Add Funds</a>
               </div>
             </div>
-          </section>
+            <div class="summary-metrics">
+              <div class="summary-mini">
+                <span>Balance</span>
+                <strong data-balance>₹0.00</strong>
+              </div>
+              <div class="summary-mini">
+                <span>Total Spend</span>
+                <strong data-total-spend>₹0.00</strong>
+              </div>
+              <div class="summary-mini">
+                <span>Your Orders</span>
+                <strong data-order-count>0</strong>
+              </div>
+            </div>
+          </div>
+        </section>
 
-          <section class="smm-grid">
-            <div>
+        <section class="smm-grid">
+          <div>
             <div class="smm-card">
               <div class="dual-tabs">
                 <button type="button">New Order</button>
@@ -86,9 +99,11 @@
               </div>
               <div class="filter-row">
                 <a class="filter-chip" href="new-order.html?app=all"><span class="chip-dot">A</span>All Services</a>
-                <a class="filter-chip red" href="new-order.html?app=instagram"><span class="chip-dot">I</span>Instagram</a>
+                <a class="filter-chip red" href="new-order.html?app=instagram"><span
+                    class="chip-dot">I</span>Instagram</a>
                 <a class="filter-chip" href="new-order.html?app=youtube"><span class="chip-dot">Y</span>YouTube</a>
-                <a class="filter-chip blue" href="new-order.html?app=telegram"><span class="chip-dot">T</span>Telegram</a>
+                <a class="filter-chip blue" href="new-order.html?app=telegram"><span
+                    class="chip-dot">T</span>Telegram</a>
               </div>
               <input class="smm-search" type="text" placeholder="Search services" />
               <label class="label-lite">POPULAR CATEGORIES</label>
@@ -101,54 +116,54 @@
               <label class="label-lite">REFERRAL / AFFILIATE</label>
               <div class="recent-order-body">
                 <div class="order-row"><span>Your code:</span><span class="value" data-referral-code>�</span></div>
-                <div class="order-row"><span>Link:</span><span class="value" data-referral-link style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">�</span></div>
+                <div class="order-row"><span>Link:</span><span class="value" data-referral-link
+                    style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">�</span></div>
                 <div class="order-row"><span>Visits:</span><span class="value" data-referral-visits>0</span></div>
-                <div class="order-row"><span>Registrations:</span><span class="value" data-referral-registrations>0</span></div>
-                <div class="order-row"><span>Conversion:</span><span class="value" data-referral-conversion>0%</span></div>
-                <div class="order-row"><span>Pending Earnings:</span><span class="value" data-referral-earnings>Rs 0.00</span></div>
-                <div class="order-row"><span>Paid Earnings:</span><span class="value" data-referral-paid>Rs 0.00</span></div>
-                <div class="order-row"><span>Min payout:</span><span class="value" data-referral-min-payout>Rs 500.00</span></div>
+                <div class="order-row"><span>Registrations:</span><span class="value"
+                    data-referral-registrations>0</span></div>
+                <div class="order-row"><span>Conversion:</span><span class="value" data-referral-conversion>0%</span>
+                </div>
+                <div class="order-row"><span>Pending Earnings:</span><span class="value" data-referral-earnings>₹0.00</span></div>
+                <div class="order-row"><span>Paid Earnings:</span><span class="value" data-referral-paid>₹0.00</span></div>
+                <div class="order-row"><span>Min payout:</span><span class="value" data-referral-min-payout>₹500.00</span></div>
               </div>
               <ul class="stack-list" data-referral-payouts style="margin-top:8px;"></ul>
             </div>
+          </div>
+
+          <aside>
+            <h2 class="recent-title">RECENT PANEL ACTIVITY</h2>
+            <div class="recent-list">
+              <article class="recent-order-card">
+                <div class="recent-order-top">
+                  <div class="recent-order-id"><span class="doc-icon">RF</span><span>Latest Recharge</span></div>
+                  <span class="complete-pill">Approved</span>
+                </div>
+                <div class="recent-order-body">
+                  <div class="order-row"><span>Method:</span><span class="value">UPI</span></div>
+                  <div class="order-row"><span>Amount:</span><span class="value">₹500</span></div>
+                  <div class="order-row"><span>Date:</span><span class="value">27 Mar 2026</span></div>
+                </div>
+              </article>
+              <article class="recent-order-card">
+                <div class="recent-order-top">
+                  <div class="recent-order-id"><span class="doc-icon">SP</span><span>Open Support</span></div>
+                  <span class="complete-pill">2 Replies</span>
+                </div>
+                <div class="recent-order-body">
+                  <div class="order-row"><span>Ticket:</span><span class="value">Order Delay</span></div>
+                  <div class="order-row"><span>Update:</span><span class="value">Admin replied recently</span></div>
+                  <div class="order-row"><span>Action:</span><span class="value">View Support Page</span></div>
+                </div>
+              </article>
             </div>
+          </aside>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="assets/app.js"></script>
+  <script src="assets/backend.js"></script>
+</body>
 
-            <aside>
-              <h2 class="recent-title">RECENT PANEL ACTIVITY</h2>
-              <div class="recent-list">
-                <article class="recent-order-card">
-                  <div class="recent-order-top">
-                    <div class="recent-order-id"><span class="doc-icon">RF</span><span>Latest Recharge</span></div>
-                    <span class="complete-pill">Approved</span>
-                  </div>
-                  <div class="recent-order-body">
-                    <div class="order-row"><span>Method:</span><span class="value">UPI</span></div>
-                    <div class="order-row"><span>Amount:</span><span class="value">Rs 500</span></div>
-                    <div class="order-row"><span>Date:</span><span class="value">27 Mar 2026</span></div>
-                  </div>
-                </article>
-                <article class="recent-order-card">
-                  <div class="recent-order-top">
-                    <div class="recent-order-id"><span class="doc-icon">SP</span><span>Open Support</span></div>
-                    <span class="complete-pill">2 Replies</span>
-                  </div>
-                  <div class="recent-order-body">
-                    <div class="order-row"><span>Ticket:</span><span class="value">Order Delay</span></div>
-                    <div class="order-row"><span>Update:</span><span class="value">Admin replied recently</span></div>
-                    <div class="order-row"><span>Action:</span><span class="value">View Support Page</span></div>
-                  </div>
-                </article>
-              </div>
-            </aside>
-          </section>
-        </div>
-      </main>
-    </div>
-    <script src="assets/backend.js"></script>
-  </body>
 </html>
-
-
-
-
-

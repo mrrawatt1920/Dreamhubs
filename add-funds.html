@@ -1,129 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DreamHubs | Add Funds</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="assets/styles.css" />
-    <link rel="icon" href="assets/icon.png">
-  
-    <script>
-      if (!localStorage.getItem("dreamhubs-token")) {
-        window.location.replace("login.html");
-      }
-    </script>
-    <!-- Google tag (gtag.js) -->
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DreamHubs | Add Funds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="icon" href="assets/icon.png">
+
+  <script>
+    if (!localStorage.getItem("dreamhubs-token")) {
+      window.location.replace("login.html");
+    }
+  </script>
+  <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-MX4VTG8NTL"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
+    function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
     gtag('config', 'G-MX4VTG8NTL');
   </script>
 </head>
-  <body class="panel-body">
-    <div class="user-layout">
-      <aside class="user-sidebar">
-        <a class="brand smm-brand" href="index.html">
-          <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
-        </a>
-        <a class="smm-subbrand" href="about.html">ABOUT US</a>
-        <nav class="sidebar-nav">
-          <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span class="menu-arrow">></span></a>
-          <a href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span class="menu-arrow">></span></a>
-          <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count" data-support-badge hidden>0</span></span><span class="menu-arrow">></span></a>
-          <a class="active" href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span class="menu-arrow">></span></a>
-          <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span class="menu-arrow">></span></a>
-        </nav>
-      </aside>
-      <main class="user-main">
-        <header class="user-topbar">
-          <div>
-            <p class="eyebrow">ADD FUNDS</p>
-            <h1>Keep balance ready for the next campaign.</h1>
+
+<body class="panel-body">
+  <div class="user-layout">
+    <aside class="user-sidebar">
+      <a class="brand smm-brand" href="index.html">
+        <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
+      </a>
+      <a class="smm-subbrand" href="about.html">ABOUT US</a>
+      <nav class="sidebar-nav">
+        <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span
+            class="menu-arrow">></span></a>
+        <a href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span
+            class="menu-arrow">></span></a>
+        <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count"
+              data-support-badge hidden>0</span></span><span class="menu-arrow">></span></a>
+        <a class="active" href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add
+            funds</span><span class="menu-arrow">></span></a>
+        <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span
+            class="menu-arrow">></span></a>
+      </nav>
+    </aside>
+    <main class="user-main">
+      <header class="user-topbar">
+        <div>
+          <p class="eyebrow">ADD FUNDS</p>
+          <h1>Keep balance ready for the next campaign.</h1>
+        </div>
+      </header>
+      <section class="dashboard-grid">
+        <article class="card wide">
+          <div class="section-title">
+            <h2>Deposit request</h2>
+            <span>Manual or gateway-based later</span>
           </div>
-        </header>
-        <section class="dashboard-grid">
-          <article class="card wide">
-            <div class="section-title">
-              <h2>Deposit request</h2>
-              <span>Manual or gateway-based later</span>
-            </div>
-            <form class="order-form auth-grid" data-funds-form>
-              <label>
-                Username
-                <input type="text" name="display_username" id="fund-username" readonly style="background: var(--bg-soft); cursor: not-allowed;" />
-              </label>
-              <label>
-                Email
-                <input type="text" name="display_email" id="fund-email" readonly style="background: var(--bg-soft); cursor: not-allowed;" />
-              </label>
-              <label>
-                Amount (INR)
-                <input type="number" name="amount" placeholder="₹50" step="1" required />
-              </label>
-              <label>
-                Payment method
-                <select name="method" data-method-select>
-                  <option value="UPI">UPI (QR Code)</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Crypto">Crypto</option>
-                </select>
-              </label>
-              <label class="auth-span">
-                Transaction reference (TRX ID)
-                <input type="text" name="reference" placeholder="Enter UTR / Transaction ID" required />
-              </label>
-              <button type="submit" class="primary-btn full auth-span">Submit Payment Request</button>
-            </form>
-          </article>
-          
-          <article class="card" id="payment-instructions">
-            <div class="section-title">
-              <h2>Payment Instructions</h2>
-              <span id="method-label">UPI</span>
-            </div>
-            
-            <div id="instruction-upi" class="instruction-content">
-              <div style="text-align: center; padding: 15px; background: white; border-radius: 12px; margin-bottom: 15px;">
-                <img src="assets/upi-qr.png" alt="UPI QR Code" style="max-width: 200px; height: auto;" onerror="this.src='https://placehold.co/200x200?text=Upload+QR+Code'">
-              </div>
-              <p style="margin: 0; font-weight: 700;">UPI ID: <span style="color: var(--accent);">mr.rawatt.20@fam</span></p>
-              <p style="font-size: 0.85rem; margin-top: 8px;">Scan the QR code and pay. After payment, enter the TRX ID on the left and submit.</p>
-            </div>
-            
-            <div id="instruction-bank" class="instruction-content" style="display: none;">
-              <p style="color: #ff4444; font-weight: 700;">Currently Unavailable</p>
-              <p>Bank transfer is not available at the moment. Please use UPI.</p>
-            </div>
-            
-            <div id="instruction-crypto" class="instruction-content" style="display: none;">
-              <p style="color: #ff4444; font-weight: 700;">Currently Unavailable</p>
-              <p>Crypto payments are not available at the moment. Please use UPI.</p>
-            </div>
-          </article>
+          <form class="order-form auth-grid" data-funds-form>
+            <label>
+              Username
+              <input type="text" name="display_username" id="fund-username" readonly
+                style="background: var(--bg-soft); cursor: not-allowed;" />
+            </label>
+            <label>
+              Email
+              <input type="text" name="display_email" id="fund-email" readonly
+                style="background: var(--bg-soft); cursor: not-allowed;" />
+            </label>
+            <label>
+              Amount (INR)
+              <input type="number" name="amount" placeholder="₹50" step="1" required />
+            </label>
+            <label>
+              Payment method
+              <select name="method" data-method-select>
+                <option value="UPI">UPI (QR Code)</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Crypto">Crypto</option>
+              </select>
+            </label>
+            <label class="auth-span">
+              Transaction reference (TRX ID)
+              <input type="text" name="reference" placeholder="Enter UTR / Transaction ID" required />
+            </label>
+            <button type="submit" class="primary-btn full auth-span">Submit Payment Request</button>
+          </form>
+        </article>
 
-          <article class="card wide">
-            <div class="section-title">
-              <h2>Recent funds</h2>
-              <span>Wallet</span>
+        <article class="card" id="payment-instructions">
+          <div class="section-title">
+            <h2>Payment Instructions</h2>
+            <span id="method-label">UPI</span>
+          </div>
+
+          <div id="instruction-upi" class="instruction-content">
+            <div
+              style="text-align: center; padding: 15px; background: white; border-radius: 12px; margin-bottom: 15px;">
+              <img src="assets/upi-qr.png" alt="UPI QR Code" style="max-width: 200px; height: auto;"
+                onerror="this.src='https://placehold.co/200x200?text=Upload+QR+Code'">
             </div>
-            <ul class="stack-list" data-funds-list></ul>
-          </article>
-        </section>
-      </main>
-    </div>
-    <script src="assets/app.js"></script>
-    <script src="assets/backend.js"></script>
-  </body>
+            <p style="margin: 0; font-weight: 700;">UPI ID: <span style="color: var(--accent);">mr.rawatt.20@fam</span>
+            </p>
+            <p style="font-size: 0.85rem; margin-top: 8px;">Scan the QR code and pay. After payment, enter the TRX ID on
+              the left and submit.</p>
+          </div>
+
+          <div id="instruction-bank" class="instruction-content" style="display: none;">
+            <p style="color: #ff4444; font-weight: 700;">Currently Unavailable</p>
+            <p>Bank transfer is not available at the moment. Please use UPI.</p>
+          </div>
+
+          <div id="instruction-crypto" class="instruction-content" style="display: none;">
+            <p style="color: #ff4444; font-weight: 700;">Currently Unavailable</p>
+            <p>Crypto payments are not available at the moment. Please use UPI.</p>
+          </div>
+        </article>
+
+        <article class="card wide">
+          <div class="section-title">
+            <h2>Recent funds</h2>
+            <span>Wallet</span>
+          </div>
+          <ul class="stack-list" data-funds-list></ul>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="assets/app.js"></script>
+  <script src="assets/backend.js"></script>
+</body>
+
 </html>
-
-
-
-

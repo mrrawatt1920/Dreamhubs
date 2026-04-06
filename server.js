@@ -289,17 +289,34 @@ async function ensureDb() {
   if (useLocalDb || FORCE_LOCAL_DB) { useLocalDb = true; return; }
   if (dbCollection) return;
   const uri = String(process.env.MONGODB_URI || "");
-  if (!uri) { useLocalDb = true; return; }
+  if (!uri) {
+    console.warn("[Database] No MONGODB_URI provided. Switching to Local JSON Storage.");
+    useLocalDb = true;
+    return;
+  }
   try {
     if (!cachedMongoClient) {
-      cachedMongoClient = new MongoClient(uri);
+      // Use reasonable timeouts for production
+      cachedMongoClient = new MongoClient(uri, {
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+      });
       await cachedMongoClient.connect();
     }
     dbCollection = cachedMongoClient.db().collection("dreamhubs_data");
     const exist = await dbCollection.findOne({ _id: "main_store" });
     if (!exist) await dbCollection.insertOne({ _id: "main_store", data: createInitialDb() });
+    console.log("[Database] Connected successfully to MongoDB Production Cluster.");
   } catch (err) {
     console.error("[Database] Mongo Error:", err.message);
+    if (err.message.toLowerCase().includes("auth failed") || err.message.toLowerCase().includes("bad auth")) {
+      console.error("[Database] Authentication Failure: Verify your MONGODB_URI credentials on Render.");
+      const passwordPart = uri.split(":")[2]?.split("@")[0];
+      if (passwordPart && (passwordPart.includes("@") || passwordPart.includes(":") || passwordPart.includes("/") || passwordPart.includes("?"))) {
+        console.error("[Database] Tip: Your password contains special characters. You MUST URL-encode them (e.g., @ becomes %40).");
+      }
+    }
+    console.warn("[Database] CRITICAL: Falling back to Local JSON Storage. DATA WILL BE LOST ON RENDER RESTARTS.");
     useLocalDb = true;
   }
 }
@@ -542,6 +559,26 @@ async function dispatchVerificationEmail(email, link) {
   } catch (e) { console.error("[SMTP] Error:", e.message); }
 }
 
+async function callProvider(prov, action, params = {}) {
+  const url = new URL(prov.url);
+  const search = new URLSearchParams({ key: prov.key, action, ...params });
+  // Most SMM APIs accept both GET and POST with query params or form data.
+  // Using POST for safety with API keys.
+  try {
+    const response = await fetch(`${url.origin}${url.pathname}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: search.toString()
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  } catch (err) {
+    console.error(`[API] Provider ${prov.name} error:`, err.message);
+    throw err;
+  }
+}
+
 async function handleApi(req, res, url) {
   // CORS (Simple)
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -689,13 +726,36 @@ async function handleApi(req, res, url) {
     const body = await parseBody(req);
     const service = auth.db.services.find(s => (body.serviceId && s.id === body.serviceId) || (s.name === body.service && s.category === body.category));
     if (!service) return send(res, 404, { error: "Service not found." });
+    
     const quantity = Number(body.quantity);
     if (quantity < service.min || quantity > service.max) return send(res, 400, { error: `Quantity must be ${service.min}-${service.max}` });
     const charge = Number(((quantity / 1000) * service.ratePer1000).toFixed(2));
     if (auth.user.balance < charge) return send(res, 400, { error: "Insufficient balance." });
 
+    // Deduct balance first (safety)
     auth.user.balance = Number((auth.user.balance - charge).toFixed(2));
+    
     const order = { id: generateId("ord"), userId: auth.user.id, serviceId: service.id, target: body.target, quantity, charge, status: "Pending", createdAt: nowIso() };
+    
+    // Forward to Provider if applicable
+    if (service.providerId) {
+      const prov = auth.db.providers.find(p => p.id === service.providerId);
+      if (prov) {
+        try {
+          const result = await callProvider(prov, "add", { service: service.originalId, link: body.target, quantity });
+          if (result && result.order) {
+            order.externalOrderId = String(result.order);
+            order.providerName = prov.name;
+          }
+        } catch (err) {
+          console.error("[Order] Provider forward failed:", err.message);
+          // We still keep the order but mark it as failure/pending for admin review
+          order.status = "Failed";
+          order.error = `Provider Error: ${err.message}`;
+        }
+      }
+    }
+    
     auth.db.orders.unshift(order);
     await writeDb(auth.db);
     return send(res, 201, { order, balance: auth.user.balance });
@@ -883,11 +943,37 @@ async function handleApi(req, res, url) {
       const { providerId } = await parseBody(req);
       const prov = auth.db.providers.find(p => p.id === providerId);
       if (!prov) return send(res, 404, { error: "Provider not found." });
-      // Real sync logic would go here
-      const newSvc = { id: generateId("svc"), name: "Synced Service", category: "General", ratePer1000: 50 * (prov.exchangeRate || 1) * (1 + (prov.margin || 0) / 100), min: 100, max: 10000, providerId, createdAt: nowIso() };
-      auth.db.services.push(newSvc);
-      await writeDb(auth.db);
-      return send(res, 200, { message: "Provider services synced!" });
+      
+      try {
+        const services = await callProvider(prov, "services");
+        if (!Array.isArray(services)) throw new Error("Invalid services response format.");
+        
+        // To avoid HUGE DB growth, we filter existing services for this provider
+        auth.db.services = auth.db.services.filter(s => s.providerId !== providerId);
+        
+        services.forEach(s => {
+          const rate = Number(s.rate || 0);
+          const finalRate = Number(((rate * (prov.exchangeRate || 1)) * (1 + (prov.margin || 0) / 100)).toFixed(4));
+          auth.db.services.push({
+            id: generateId("svc"),
+            originalId: String(s.service),
+            name: s.name,
+            category: s.category,
+            ratePer1000: finalRate,
+            originalRate: rate,
+            min: Number(s.min || 10),
+            max: Number(s.max || 10000),
+            desc: s.type || "",
+            providerId: prov.id,
+            createdAt: nowIso()
+          });
+        });
+        
+        await writeDb(auth.db);
+        return send(res, 200, { message: `Successfully synced ${services.length} services from ${prov.name}!` });
+      } catch (err) {
+        return send(res, 500, { error: `Provider Sync Failed: ${err.message}` });
+      }
     }
 
     if (req.method === "POST" && url.pathname === "/api/admin/funds/action") {
@@ -957,8 +1043,49 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === "POST" && url.pathname === "/api/admin/orders/sync-status") {
+      const pending = auth.db.orders.filter(o => o.externalOrderId && !["Completed", "Cancelled", "Refunded", "Failed"].includes(o.status));
+      if (!pending.length) return send(res, 200, { message: "No pending provider-linked orders to sync." });
+      
+      let syncedCount = 0;
+      const providers = auth.db.providers || [];
+      
+      for (const prov of providers) {
+        const provOrders = pending.filter(o => {
+          const svc = auth.db.services.find(s => s.id === o.serviceId);
+          return svc && svc.providerId === prov.id;
+        });
+        
+        if (!provOrders.length) continue;
+        
+        try {
+          const ids = provOrders.map(o => o.externalOrderId).join(",");
+          const statuses = await callProvider(prov, "status", { orders: ids });
+          
+          Object.entries(statuses).forEach(([extId, s]) => {
+            const order = provOrders.find(o => o.externalOrderId === extId);
+            if (order && s.status) {
+              const oldStatus = order.status;
+              // Clean up status string (e.g. "In progress" -> "In Progress")
+              let finalStatus = s.status;
+              if (finalStatus === "In progress") finalStatus = "In Progress";
+              
+              order.status = finalStatus;
+              order.remains = s.remains;
+              order.startCount = s.start_count;
+              
+              if (oldStatus !== order.status) {
+                updateReferralForOrder(auth.db, order, oldStatus, order.status);
+                syncedCount++;
+              }
+            }
+          });
+        } catch (e) {
+          console.error(`[Sync Status] Failed for ${prov.name}:`, e.message);
+        }
+      }
+      
       await writeDb(auth.db);
-      return send(res, 200, { message: "Order statuses synced from providers!" });
+      return send(res, 200, { message: `Checked ${pending.length} orders. Updated ${syncedCount} status changes!` });
     }
   }
 

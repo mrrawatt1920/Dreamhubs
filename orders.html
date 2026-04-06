@@ -1,97 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DreamHubs | Orders</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="assets/styles.css" />
-    <link rel="icon" href="assets/icon.png">
-  
-    <script>
-      if (!localStorage.getItem("dreamhubs-token")) {
-        window.location.replace("login.html");
-      }
-    </script>
-    <!-- Google tag (gtag.js) -->
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DreamHubs | Orders</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="icon" href="assets/icon.png">
+
+  <script>
+    if (!localStorage.getItem("dreamhubs-token")) {
+      window.location.replace("login.html");
+    }
+  </script>
+  <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-MX4VTG8NTL"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
+    function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
     gtag('config', 'G-MX4VTG8NTL');
   </script>
 </head>
-  <body class="panel-body">
-    <div class="user-layout">
-      <aside class="user-sidebar">
-        <a class="brand smm-brand" href="index.html">
-          <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
-        </a>
-        <a class="smm-subbrand" href="about.html">ABOUT US</a>
-        <nav class="sidebar-nav">
-          <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span class="menu-arrow">></span></a>
-          <a class="active" href="orders.html"><span class="menu-item"><span class="menu-icon gray">O</span>Orders</span><span class="menu-arrow">></span></a>
-          <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count" data-support-badge hidden>0</span></span><span class="menu-arrow">></span></a>
-          <a href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span class="menu-arrow">></span></a>
-          <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span class="menu-arrow">></span></a>
-        </nav>
-      </aside>
-      <main class="user-main">
-        <header class="user-topbar">
-          <div>
-            <p class="eyebrow">ORDERS</p>
-            <h1>Track every order from one place.</h1>
+
+<body class="panel-body">
+  <div class="user-layout">
+    <aside class="user-sidebar">
+      <a class="brand smm-brand" href="index.html">
+        <img src="assets/logo.png" alt="DreamHubs Logo" style="height: 40px; width: auto; object-fit: contain;">
+      </a>
+      <a class="smm-subbrand" href="about.html">ABOUT US</a>
+      <nav class="sidebar-nav">
+        <a href="new-order.html"><span class="menu-item"><span class="menu-icon">N</span>New order</span><span
+            class="menu-arrow">></span></a>
+        <a class="active" href="orders.html"><span class="menu-item"><span
+              class="menu-icon gray">O</span>Orders</span><span class="menu-arrow">></span></a>
+        <a href="tickets.html"><span class="menu-item"><span class="menu-icon">S</span>Support <span class="badge-count"
+              data-support-badge hidden>0</span></span><span class="menu-arrow">></span></a>
+        <a href="add-funds.html"><span class="menu-item"><span class="menu-icon gray">A</span>Add funds</span><span
+            class="menu-arrow">></span></a>
+        <a href="account.html"><span class="menu-item"><span class="menu-icon orange">A</span>Account</span><span
+            class="menu-arrow">></span></a>
+      </nav>
+    </aside>
+    <main class="user-main">
+      <header class="user-topbar">
+        <div>
+          <p class="eyebrow">ORDERS</p>
+          <h1>Track every order from one place.</h1>
+        </div>
+        <div class="topbar-tools">
+          <a class="primary-btn" href="new-order.html">Place Order</a>
+        </div>
+      </header>
+      <section class="dashboard-grid">
+        <article class="card wide">
+          <div class="section-title">
+            <h2>Order history</h2>
+            <span>All campaigns</span>
           </div>
-          <div class="topbar-tools">
-            <a class="primary-btn" href="new-order.html">Place Order</a>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Date</th>
+                <th>Service</th>
+                <th>Target</th>
+                <th>Status</th>
+                <th>Charge</th>
+              </tr>
+            </thead>
+            <tbody data-orders-table></tbody>
+          </table>
+        </article>
+        <article class="card">
+          <div class="section-title">
+            <h2>Status guide</h2>
+            <span>Labels</span>
           </div>
-        </header>
-        <section class="dashboard-grid">
-          <article class="card wide">
-            <div class="section-title">
-              <h2>Order history</h2>
-              <span>All campaigns</span>
-            </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Date</th>
-                  <th>Service</th>
-                  <th>Target</th>
-                  <th>Status</th>
-                  <th>Charge</th>
-                </tr>
-              </thead>
-              <tbody data-orders-table></tbody>
-            </table>
-          </article>
-          <article class="card">
-            <div class="section-title">
-              <h2>Status guide</h2>
-              <span>Labels</span>
-            </div>
-            <ul class="stack-list">
-              <li><strong>Pending</strong><span>Order is created and waiting for provider action.</span></li>
-              <li><strong>Processing</strong><span>Campaign is actively delivering.</span></li>
-              <li><strong>Completed</strong><span>Requested quantity has been delivered.</span></li>
-              <li><strong>Partial</strong><span>Only part of the requested quantity was fulfilled.</span></li>
-            </ul>
-          </article>
-        </section>
-      </main>
-    </div>
-    <script src="assets/app.js"></script>
-    <script src="assets/backend.js"></script>
-  </body>
+          <ul class="stack-list">
+            <li><strong>Pending</strong><span>Order is created and waiting for provider action.</span></li>
+            <li><strong>Processing</strong><span>Campaign is actively delivering.</span></li>
+            <li><strong>Completed</strong><span>Requested quantity has been delivered.</span></li>
+            <li><strong>Partial</strong><span>Only part of the requested quantity was fulfilled.</span></li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="assets/app.js"></script>
+  <script src="assets/backend.js"></script>
+</body>
+
 </html>
-
-
-
-
