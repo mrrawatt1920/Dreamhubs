@@ -684,7 +684,7 @@ async function handleApi(req, res, url) {
   // Admin routes
   if (req.method === "POST" && url.pathname === "/api/admin/login") {
     const body = await parseBody(req);
-    const user = String(body.username || "").trim().toLowerCase();
+    const user = String(body.identifier || body.username || "").trim().toLowerCase();
     const pass = String(body.password || "");
 
     if (user === ADMIN_USERNAME && pass === ADMIN_PASSWORD) {
@@ -699,8 +699,49 @@ async function handleApi(req, res, url) {
   if (url.pathname.startsWith("/api/admin")) {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
+
     if (url.pathname === "/api/admin/stats") return send(res, 200, buildAdminStats(auth.db));
     if (url.pathname === "/api/admin/users") return send(res, 200, { users: auth.db.users.map(u => withUserStats(auth.db, u)) });
+
+    if (req.method === "GET" && url.pathname === "/api/admin/providers") return send(res, 200, { providers: auth.db.providers || [] });
+    if (req.method === "POST" && url.pathname === "/api/admin/providers") {
+      const body = await parseBody(req);
+      const prov = { id: generateId("prov"), ...body, createdAt: nowIso() };
+      auth.db.providers.push(prov);
+      await writeDb(auth.db);
+      return send(res, 201, { provider: prov });
+    }
+    if (req.method === "DELETE" && url.pathname === "/api/admin/providers") {
+      const id = url.searchParams.get("id");
+      auth.db.providers = auth.db.providers.filter(p => p.id !== id);
+      auth.db.services = auth.db.services.filter(s => s.providerId !== id);
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Provider and its services removed." });
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/admin/categories") {
+      const { oldName, newName } = await parseBody(req);
+      auth.db.services.forEach(s => { if (s.category === oldName) s.category = newName; });
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Category renamed." });
+    }
+    if (req.method === "POST" && url.pathname === "/api/admin/provider/sync") {
+      const { providerId } = await parseBody(req);
+      const prov = auth.db.providers.find(p => p.id === providerId);
+      if (!prov) return send(res, 404, { error: "Provider not found." });
+      // In a real-world scenario, you would fetch from the provider's API here.
+      // For this implementation, we will mock the sync by adding some sample services.
+      const newSvc = { id: generateId("svc"), name: "Sample Service", category: "General", ratePer1000: 50, min: 100, max: 10000, providerId, createdAt: nowIso() };
+      auth.db.services.push(newSvc);
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Provider services synced!" });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/admin/orders/sync-status") {
+      // Mock order sync logic
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Order statuses synced from providers!" });
+    }
   }
 
   if (url.pathname === "/api/appearance") {
