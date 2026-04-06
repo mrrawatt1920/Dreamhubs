@@ -419,7 +419,16 @@ async function handleLoginPage() {
   }
 
   if (googleMount) {
-    const clientId = document.body.dataset.googleClientId || "";
+    let clientId = document.body.dataset.googleClientId || "";
+    if (!clientId) {
+      try {
+        const config = await API.request("/api/auth/google-config");
+        clientId = String(config.clientId || "");
+      } catch {
+        clientId = "";
+      }
+    }
+
     const googleReady = await waitForGoogleIdentity();
     if (!googleReady || !clientId) {
       setStatus(googleStatus, "Google login is not configured yet.", "error");
