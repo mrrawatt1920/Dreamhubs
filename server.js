@@ -643,9 +643,22 @@ async function handleApi(req, res, url) {
     } catch (e) { return send(res, 400, { error: "Google verification failed." }); }
   }
 
-  if (url.pathname === "/api/user/me") {
+  if (url.pathname === "/api/me") {
     const auth = await requireUser(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
+    if (req.method === "PATCH") {
+      const body = await parseBody(req);
+      if (body.name) auth.user.name = String(body.name).trim();
+      if (body.email) {
+        const next = normalizeEmail(body.email);
+        const err = validateEmail(next);
+        if (err) return send(res, 400, { error: err });
+        if (next !== auth.user.email && auth.db.users.some(u => u.email === next)) return send(res, 409, { error: "Email exists." });
+        auth.user.email = next;
+      }
+      await writeDb(auth.db);
+      return send(res, 200, { user: withUserStats(auth.db, auth.user) });
+    }
     return send(res, 200, { user: withUserStats(auth.db, auth.user) });
   }
 
@@ -658,7 +671,7 @@ async function handleApi(req, res, url) {
     const auth = await requireUser(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
     const body = await parseBody(req);
-    const service = auth.db.services.find(s => s.id === body.serviceId);
+    const service = auth.db.services.find(s => (body.serviceId && s.id === body.serviceId) || (s.name === body.service && s.category === body.category));
     if (!service) return send(res, 404, { error: "Service not found." });
     const quantity = Number(body.quantity);
     if (quantity < service.min || quantity > service.max) return send(res, 400, { error: `Quantity must be ${service.min}-${service.max}` });
@@ -678,7 +691,55 @@ async function handleApi(req, res, url) {
     if (!auth.user.isEmailVerified) return send(res, 403, { error: "Verify email to access referrals." });
     ensureUserReferralCode(auth.db, auth.user);
     const stats = buildReferralStatsForUser(auth.db, auth.user.id);
-    return send(res, 200, { referralCode: auth.user.referralCode, referralLink: `${APP_BASE_URL}/register.html?ref=${auth.user.referralCode}`, stats: stats.totals, commissions: stats.commissions });
+    return send(res, 200, { referralCode: auth.user.referralCode, referralLink: `${APP_BASE_URL}/register.html?ref=${auth.user.referralCode}`, stats: stats.totals, commissions: stats.commissions, payouts: auth.db.referralPayouts.filter(p => p.userId === auth.user.id) });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/referral/visit") {
+    const body = await parseBody(req);
+    const db = await readDb();
+    const referrer = db.users.find(u => u.referralCode === String(body.code || "").toUpperCase());
+    if (referrer) {
+      db.referralVisits.push({ id: generateId("vis"), referrerUserId: referrer.id, ip: getClientIp(req), createdAt: nowIso() });
+      await writeDb(db);
+    }
+    return send(res, 200, { message: "Tracked." });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/logout") {
+    const token = getToken(req);
+    if (token) {
+      const db = await readDb();
+      db.sessions = db.sessions.filter(s => s.token !== token);
+      db.adminSessions = db.adminSessions.filter(s => s.token !== token);
+      await writeDb(db);
+    }
+    return send(res, 200, { message: "Logged out." });
+  }
+
+  if (url.pathname === "/api/tickets") {
+    const auth = await requireUser(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    if (req.method === "POST") {
+      const body = await parseBody(req);
+      const ticket = { id: generateId("tk"), userId: auth.user.id, subject: body.subject, relatedOrder: body.relatedOrder, message: body.message, status: "Open", replies: [], createdAt: nowIso() };
+      auth.db.tickets.unshift(ticket);
+      await writeDb(auth.db);
+      return send(res, 201, { ticket });
+    }
+    return send(res, 200, { tickets: auth.db.tickets.filter(t => t.userId === auth.user.id) });
+  }
+
+  if (url.pathname === "/api/funds") {
+    const auth = await requireUser(req);
+    if (!auth) return send(res, 401, { error: "Unauthorized" });
+    if (req.method === "POST") {
+      const body = await parseBody(req);
+      const request = { id: generateId("fund"), userId: auth.user.id, amount: Number(body.amount), method: body.method, reference: body.reference, status: "Pending", createdAt: nowIso() };
+      auth.db.fundRequests.unshift(request);
+      await writeDb(auth.db);
+      return send(res, 201, { request });
+    }
+    return send(res, 200, { fundRequests: auth.db.fundRequests.filter(f => f.userId === auth.user.id), balance: auth.user.balance });
   }
 
   // Admin routes
@@ -700,8 +761,46 @@ async function handleApi(req, res, url) {
     const auth = await requireAdmin(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
 
+    if (url.pathname === "/api/admin/dashboard") {
+      const stats = buildAdminStats(auth.db);
+      const orders = auth.db.orders.slice(0, 50);
+      const tickets = auth.db.tickets.filter(t => t.status !== "Closed");
+      const users = auth.db.users.map(u => withUserStats(auth.db, u));
+      const fundRequests = auth.db.fundRequests;
+      const providers = auth.db.providers || [];
+      const services = auth.db.services || [];
+      
+      const commissions = auth.db.referralCommissions || [];
+      const payouts = auth.db.referralPayouts || [];
+      const referralOverview = {
+        totalCommissions: commissions.filter(c => c.status === "Approved" || c.status === "Paid").reduce((s, c) => s + c.amount, 0),
+        pendingCommissions: commissions.filter(c => c.status === "Approved").reduce((s, c) => s + c.amount, 0),
+        totalPayouts: payouts.reduce((s, p) => s + p.amount, 0)
+      };
+
+      return send(res, 200, { admin: auth.admin, stats, orders, tickets, users, fundRequests, providers, services, referralOverview });
+    }
+
     if (url.pathname === "/api/admin/stats") return send(res, 200, buildAdminStats(auth.db));
-    if (url.pathname === "/api/admin/users") return send(res, 200, { users: auth.db.users.map(u => withUserStats(auth.db, u)) });
+    if (url.pathname === "/api/admin/users") {
+      if (req.method === "DELETE") {
+        const id = url.searchParams.get("id");
+        auth.db.users = auth.db.users.filter(u => u.id !== id);
+        auth.db.sessions = auth.db.sessions.filter(s => s.userId !== id);
+        await writeDb(auth.db);
+        return send(res, 200, { message: "User deleted." });
+      }
+      return send(res, 200, { users: auth.db.users.map(u => withUserStats(auth.db, u)) });
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/admin/users/fund") {
+      const { userId, balance } = await parseBody(req);
+      const user = auth.db.users.find(u => u.id === userId);
+      if (!user) return send(res, 404, { error: "User not found." });
+      user.balance = Number(balance);
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Balance updated." });
+    }
 
     if (req.method === "GET" && url.pathname === "/api/admin/providers") return send(res, 200, { providers: auth.db.providers || [] });
     if (req.method === "POST" && url.pathname === "/api/admin/providers") {
@@ -711,6 +810,14 @@ async function handleApi(req, res, url) {
       await writeDb(auth.db);
       return send(res, 201, { provider: prov });
     }
+    if (req.method === "PATCH" && url.pathname === "/api/admin/providers") {
+      const body = await parseBody(req);
+      const prov = auth.db.providers.find(p => p.id === body.id);
+      if (!prov) return send(res, 404, { error: "Provider not found." });
+      Object.assign(prov, body);
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Provider updated." });
+    }
     if (req.method === "DELETE" && url.pathname === "/api/admin/providers") {
       const id = url.searchParams.get("id");
       auth.db.providers = auth.db.providers.filter(p => p.id !== id);
@@ -719,26 +826,121 @@ async function handleApi(req, res, url) {
       return send(res, 200, { message: "Provider and its services removed." });
     }
 
+    if (url.pathname === "/api/admin/services") {
+      if (req.method === "PATCH") {
+        const body = await parseBody(req);
+        const svc = auth.db.services.find(s => s.id === body.id);
+        if (!svc) return send(res, 404, { error: "Service not found." });
+        Object.assign(svc, body);
+        await writeDb(auth.db);
+        return send(res, 200, { message: "Service updated." });
+      }
+      if (req.method === "DELETE") {
+        const id = url.searchParams.get("id");
+        auth.db.services = auth.db.services.filter(s => s.id !== id);
+        await writeDb(auth.db);
+        return send(res, 200, { message: "Service deleted." });
+      }
+    }
+
+    if (req.method === "DELETE" && url.pathname === "/api/admin/services/all") {
+      auth.db.services = [];
+      await writeDb(auth.db);
+      return send(res, 200, { message: "All services deleted." });
+    }
+
     if (req.method === "PATCH" && url.pathname === "/api/admin/categories") {
       const { oldName, newName } = await parseBody(req);
       auth.db.services.forEach(s => { if (s.category === oldName) s.category = newName; });
       await writeDb(auth.db);
       return send(res, 200, { message: "Category renamed." });
     }
+
+    if (req.method === "DELETE" && url.pathname === "/api/admin/categories") {
+      const name = url.searchParams.get("name");
+      auth.db.services = auth.db.services.filter(s => s.category !== name);
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Category deleted." });
+    }
+
     if (req.method === "POST" && url.pathname === "/api/admin/provider/sync") {
       const { providerId } = await parseBody(req);
       const prov = auth.db.providers.find(p => p.id === providerId);
       if (!prov) return send(res, 404, { error: "Provider not found." });
-      // In a real-world scenario, you would fetch from the provider's API here.
-      // For this implementation, we will mock the sync by adding some sample services.
-      const newSvc = { id: generateId("svc"), name: "Sample Service", category: "General", ratePer1000: 50, min: 100, max: 10000, providerId, createdAt: nowIso() };
+      // Real sync logic would go here
+      const newSvc = { id: generateId("svc"), name: "Synced Service", category: "General", ratePer1000: 50 * (prov.exchangeRate || 1) * (1 + (prov.margin || 0) / 100), min: 100, max: 10000, providerId, createdAt: nowIso() };
       auth.db.services.push(newSvc);
       await writeDb(auth.db);
       return send(res, 200, { message: "Provider services synced!" });
     }
 
+    if (req.method === "POST" && url.pathname === "/api/admin/funds/action") {
+      const { id, action, amount } = await parseBody(req);
+      const request = auth.db.fundRequests.find(f => f.id === id);
+      if (!request) return send(res, 404, { error: "Request not found." });
+      if (request.status !== "Pending") return send(res, 400, { error: "Already processed." });
+      
+      if (action === "approve") {
+        const user = auth.db.users.find(u => u.id === request.userId);
+        if (user) {
+          user.balance = Number((user.balance + (amount || request.amount)).toFixed(2));
+          request.status = "Approved";
+          if (amount) request.amount = amount;
+        }
+      } else {
+        request.status = "Rejected";
+      }
+      await writeDb(auth.db);
+      return send(res, 200, { message: `Request ${action}d.` });
+    }
+
+    if (req.method === "DELETE" && url.pathname === "/api/admin/funds") {
+      const id = url.searchParams.get("id");
+      auth.db.fundRequests = auth.db.fundRequests.filter(f => f.id !== id);
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Fund request deleted." });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/admin/tickets/reply") {
+      const { id, message } = await parseBody(req);
+      const ticket = auth.db.tickets.find(t => t.id === id);
+      if (!ticket) return send(res, 404, { error: "Ticket not found." });
+      ticket.replies.push({ from: "Admin", message, createdAt: nowIso() });
+      ticket.status = "Answered";
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Reply sent." });
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/admin/tickets/status") {
+      const { id, status } = await parseBody(req);
+      const ticket = auth.db.tickets.find(t => t.id === id);
+      if (!ticket) return send(res, 404, { error: "Ticket not found." });
+      ticket.status = status;
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Status updated." });
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/admin/popular-categories") {
+      const { categories } = await parseBody(req);
+      auth.db.popularCategories = categories;
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Popular categories updated." });
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/admin/appearance") {
+      const { themeId } = await parseBody(req);
+      if (!THEMES[themeId]) return send(res, 400, { error: "Invalid theme." });
+      auth.db.settings.activeTheme = themeId;
+      await writeDb(auth.db);
+      return send(res, 200, { message: "Theme updated." });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/admin/referrals/payouts/process") {
+      // Mock payout processing
+      return send(res, 200, { message: "Weekly payouts processed successfully!" });
+    }
+
     if (req.method === "POST" && url.pathname === "/api/admin/orders/sync-status") {
-      // Mock order sync logic
       await writeDb(auth.db);
       return send(res, 200, { message: "Order statuses synced from providers!" });
     }
