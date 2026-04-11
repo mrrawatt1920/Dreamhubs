@@ -982,17 +982,6 @@ async function handleAdminPage() {
         }
       }
 
-      const referralStats = document.querySelector("[data-admin-referral-stats]");
-      if (referralStats && data.referralOverview) {
-        referralStats.innerHTML = `
-          <div class="admin-inline-metrics">
-            <span>Total Commission: <strong>Rs ${Number(data.referralOverview.totalCommissions || 0).toFixed(2)}</strong></span>
-            <span>Pending: <strong>Rs ${Number(data.referralOverview.pendingCommissions || 0).toFixed(2)}</strong></span>
-            <span>Paid Out: <strong>Rs ${Number(data.referralOverview.totalPayouts || 0).toFixed(2)}</strong></span>
-          </div>
-        `;
-      }
-
     } catch (error) {
       showGate();
       API.clearAdminSession();
@@ -1114,20 +1103,6 @@ async function handleAdminPage() {
     } catch (err) { setStatus(providerStatus, err.message, "error"); }
   };
 
-  window.adminProcessReferralPayouts = async () => {
-    if (!confirm("Process weekly referral payouts now?")) return;
-    try {
-      const res = await API.request("/api/admin/referrals/payouts/process", {
-        method: "POST",
-        admin: true
-      });
-      alert(res.message);
-      if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   window.adminSyncOrderStatuses = async () => {
     try {
       const res = await API.request("/api/admin/orders/sync-status", {
@@ -1183,26 +1158,7 @@ async function handlePanelUser() {
   setText("[data-order-count]", String(user.totalOrders || 0));
   const spendNode = document.querySelector("[data-total-spend]");
   if (spendNode) spendNode.textContent = `Rs ${Number(user.totalSpend || 0).toFixed(2)}`;
-
-  // Verification Banner
-  const banner = document.getElementById("verifyBanner");
-  if (banner) {
-    banner.style.display = user.isEmailVerified ? "none" : "flex";
-  }
 }
-
-window.resendVerification = async () => {
-  const btn = document.getElementById("resendBtn");
-  if (btn) btn.disabled = true;
-  try {
-    const res = await API.request("/api/auth/resend-verification", { method: "POST" });
-    alert(res.message || "Verification email sent!");
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-};
 
 async function loadPopularCategories() {
   const container = document.querySelector("[data-popular-categories]");
@@ -1247,56 +1203,6 @@ async function loadPopularCategories() {
     }).join("");
   } catch {
     container.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:10px 0;">Could not load categories.</p>`;
-  }
-}
-
-async function handleReferralPanel() {
-  const card = document.querySelector("[data-referral-card]");
-  if (!card || !API.token) return;
-
-  const user = API.getUser();
-  if (!user || !user.isEmailVerified) {
-    card.hidden = true;
-    return;
-  }
-
-  try {
-    const data = await API.request("/api/referrals/me");
-    card.hidden = false;
-    const codeEl = card.querySelector("[data-referral-code]");
-    const linkEl = card.querySelector("[data-referral-link]");
-    const visitsEl = card.querySelector("[data-referral-visits]");
-    const regsEl = card.querySelector("[data-referral-registrations]");
-    const convEl = card.querySelector("[data-referral-conversion]");
-    const earnEl = card.querySelector("[data-referral-earnings]");
-    const paidEl = card.querySelector("[data-referral-paid]");
-    const limitEl = card.querySelector("[data-referral-min-payout]");
-    const payoutListEl = card.querySelector("[data-referral-payouts]");
-
-    if (codeEl) codeEl.textContent = data.referralCode || "N/A";
-    if (linkEl) linkEl.textContent = data.referralLink || "-";
-    if (visitsEl) visitsEl.textContent = String(data.stats?.visits || 0);
-    if (regsEl) regsEl.textContent = String(data.stats?.registrations || 0);
-    if (convEl) convEl.textContent = `${Number(data.stats?.conversionRate || 0).toFixed(2)}%`;
-    if (earnEl) earnEl.textContent = `Rs ${Number(data.stats?.approvedEarnings || 0).toFixed(2)}`;
-    if (paidEl) paidEl.textContent = `Rs ${Number(data.stats?.paidEarnings || 0).toFixed(2)}`;
-    if (limitEl) limitEl.textContent = `Rs ${Number(data.stats?.minPayout || 500).toFixed(2)}`;
-
-    if (payoutListEl) {
-      const payouts = data.payouts || [];
-      if (!payouts.length) {
-        payoutListEl.innerHTML = `<li><strong>No payouts yet</strong><span>Weekly payouts will appear here once minimum payout is reached.</span></li>`;
-      } else {
-        payoutListEl.innerHTML = payouts.slice(0, 5).map((item) => `
-          <li>
-            <strong>Rs ${Number(item.amount || 0).toFixed(2)} (${escapeHtml(item.status || "Paid")})</strong>
-            <span>${formatDate(item.paidAt || item.createdAt)}</span>
-          </li>
-        `).join("");
-      }
-    }
-  } catch {
-    card.hidden = true;
   }
 }
 
@@ -1380,7 +1286,11 @@ async function handleOrderPage() {
     }
   }
 
-  await loadOrders();
+  try {
+    await loadOrders();
+  } catch (err) {
+    console.warn("[Orders] Could not load order history:", err.message);
+  }
 
   if (form) {
     const categorySelect = document.querySelector("[data-order-category]");
@@ -1977,6 +1887,202 @@ async function updateSupportBadge() {
       } else {
         badge.setAttribute("hidden", "");
       }
+window.adminSavePopularCategories = async function() {
+  const popularBox = document.getElementById("popular-categories-checkboxes");
+  const statusEl = document.getElementById("popular-categories-status");
+
+  if (!popularBox) return;
+
+  const checked = Array.from(popularBox.querySelectorAll("input[type='checkbox']:checked"))
+    .map(cb => cb.value);
+
+  if (statusEl) setStatus(statusEl, "Saving...", "info");
+
+  try {
+    const res = await API.request("/api/admin/popular-categories", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ categories: checked })
+    });
+    if (statusEl) setStatus(statusEl, "✅ " + res.message, "success");
+  } catch (err) {
+    if (statusEl) setStatus(statusEl, "❌ " + err.message, "error");
+  }
+};
+
+window.editService = async function(id, currentCategory, currentName, currentRate) {
+  // Keeping this for backward compatibility if needed, but admin panels uses adminEditService now
+  const newCategory = prompt("Enter new category name:", currentCategory);
+  if (newCategory === null) return;
+  const newName = prompt("Enter new service name:", currentName);
+  if (newName === null) return;
+  const newRate = prompt("Enter new rate per 1000 (₹):", currentRate);
+  if (newRate === null) return;
+
+  try {
+    const res = await API.request("/api/admin/services", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ id, category: newCategory, name: newName, ratePer1000: Number(newRate) })
+    });
+    alert(res.message);
+    location.reload();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
+window.adminFundAction = async function(id, action) {
+  let amount = null;
+  
+  if (action === "approve") {
+    // Find the request in the current list to get the default amount
+    const fundList = document.querySelector("[data-admin-fund-list]");
+    let currentAmount = "0";
+    if (fundList) {
+      const items = Array.from(fundList.querySelectorAll("li"));
+      const item = items.find(li => li.innerHTML.includes(id));
+      if (item) {
+        const strong = item.querySelector("strong");
+        if (strong) {
+          const match = strong.textContent.match(/Rs ([\d\.]+)/);
+          if (match) currentAmount = match[1];
+        }
+      }
+    }
+    
+    const input = prompt(`Approve this request? You can edit the amount below:`, currentAmount);
+    if (input === null) return; // Cancelled
+    amount = Number(input);
+    if (isNaN(amount) || amount <= 0) return alert("Please enter a valid positive amount.");
+  } else {
+    if (!confirm(`Are you sure you want to reject this request?`)) return;
+  }
+  
+  try {
+    const res = await API.request("/api/admin/funds/action", {
+      method: "POST",
+      admin: true,
+      body: JSON.stringify({ id, action, amount: amount })
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) {
+      await window.refreshAdminDashboard();
+    } else {
+      location.reload();
+    }
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
+window.adminDeleteFundRequest = async function(id) {
+  if (!confirm("Are you sure you want to delete this fund request?")) return;
+  try {
+    const res = await API.request(`/api/admin/funds?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      admin: true
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
+window.adminEditUserFund = async function(userId, currentBalance) {
+  const input = prompt("Enter new total fund amount for this user:", String(Number(currentBalance || 0)));
+  if (input === null) return;
+
+  const nextBalance = Number(input);
+  if (Number.isNaN(nextBalance) || nextBalance < 0) {
+    alert("Please enter a valid amount (0 or more).");
+    return;
+  }
+
+  try {
+    const res = await API.request("/api/admin/users/fund", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ userId, balance: nextBalance })
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
+window.adminDeleteUser = async function(userId, userLabel) {
+  if (!confirm(`Delete user ${userLabel}? This action cannot be undone.`)) return;
+  if (!confirm("Are you fully sure? User account and related records will be removed.")) return;
+
+  try {
+    const res = await API.request(`/api/admin/users?id=${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      admin: true
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
+
+window.adminTicketReply = async function(id) {
+  const message = prompt("Enter your reply to the user:");
+  if (!message) return;
+  
+  try {
+    const res = await API.request("/api/admin/tickets/reply", {
+      method: "POST",
+      admin: true,
+      body: JSON.stringify({ id, message })
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
+window.adminTicketAction = async function(id, status) {
+  if (!confirm(`Mark this ticket as ${status}?`)) return;
+  try {
+    const res = await API.request("/api/admin/tickets/status", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ id, status })
+    });
+    alert(res.message);
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
+window.adminUpdateTheme = async function(themeId) {
+  try {
+    const res = await API.request("/api/admin/appearance", {
+      method: "PATCH",
+      admin: true,
+      body: JSON.stringify({ themeId })
+    });
+    alert(res.message);
+    await API.syncTheme();
+    if (window.refreshAdminDashboard) await window.refreshAdminDashboard();
+  } catch (error) { alert("Error: " + error.message); }
+};
+
+async function updateSupportBadge() {
+  // Only run if user is logged in
+  if (!API.token) return;
+  try {
+    const data = await API.request("/api/tickets");
+    // Count tickets that are Open or Answered (active — not Closed)
+    const activeCount = (data.tickets || []).filter(
+      t => t.status === "Open" || t.status === "Answered" || t.status === "In Progress"
+    ).length;
+
+    document.querySelectorAll("[data-support-badge]").forEach(badge => {
+      if (activeCount > 0) {
+        badge.textContent = activeCount;
+        badge.removeAttribute("hidden");
+      } else {
+        badge.setAttribute("hidden", "");
+      }
     });
   } catch {
     // If not logged in or error, just hide badge
@@ -1986,17 +2092,60 @@ async function updateSupportBadge() {
   }
 }
 
-function setButtonLoading(btn, isLoading) {
-  if (!btn) return;
-  if (isLoading) {
-    if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
-    btn.innerHTML = `<span class="btn-spinner"></span> ${btn.textContent}`;
-    btn.disabled = true;
-  } else {
-    if (btn.dataset.originalText) btn.innerHTML = btn.dataset.originalText;
-    btn.disabled = false;
+async function handleTabSwitching() {
+  const tabs = document.querySelectorAll("[data-tab-btn]");
+  const contents = document.querySelectorAll("[data-tab-content]");
+
+  tabs.forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const target = btn.dataset.tabBtn;
+      
+      // If we're on dashboard.html and click "order", redirect
+      if (window.location.pathname.includes("dashboard.html") && target === "order") {
+        window.location.href = "new-order.html";
+        return;
+      }
+      
+      tabs.forEach(b => b.classList.toggle("active", b.dataset.tabBtn === target));
+      contents.forEach(c => {
+        if (c.dataset.tabContent === target) {
+          c.removeAttribute("hidden");
+          c.style.display = ""; // Reset to default (block/flex etc)
+        } else {
+          c.setAttribute("hidden", "true");
+          c.style.display = "none";
+        }
+      });
+      
+      if (target === "popular") {
+        loadPopularCategories();
+      }
+    });
+  });
+}
+
+function handleDemoBanner() {
+  if (localStorage.getItem(API.demoKey) === "1") {
+    const banner = document.createElement("div");
+    banner.id = "demo-banner";
+    banner.style.cssText = "background:var(--accent); color:white; padding:10px; position:fixed; bottom:20px; left:20px; z-index:9999; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.3); display:flex; align-items:center; gap:15px; border:2px solid rgba(255,255,255,0.2); transition: all 0.3s ease;";
+    banner.innerHTML = `
+      <div style="flex:1;">
+        <strong style="display:block;font-size:0.9rem;">Demo Mode Active</strong>
+        <small style="opacity:0.8;font-size:0.75rem;">You are seeing sample data. Sync/Real data is hidden.</small>
+      </div>
+      <button onclick="exitDemoMode()" style="background:white; color:var(--accent); border:none; padding:6px 12px; border-radius:6px; font-weight:700; cursor:pointer; font-size:0.8rem;">Exit Demo</button>
+    `;
+    document.body.appendChild(banner);
   }
 }
+
+window.exitDemoMode = function() {
+  localStorage.removeItem(API.demoKey);
+  localStorage.removeItem("dreamhubs-demo-db");
+  location.reload();
+};
 
 function highlightActiveSidebar() {
   const currentPath = window.location.pathname.split("/").pop() || "index.html";
@@ -2013,23 +2162,23 @@ function highlightActiveSidebar() {
 document.addEventListener("DOMContentLoaded", async () => {
   highlightActiveSidebar();
   await API.syncTheme();
-  await handleRegisterPage();
-  await handleLoginPage();
-  await handleResetPasswordPage();
-  await handleForgotPage();
-  await handleAdminPage();
-  await handlePanelUser();
-  await handleOrderPage();
-  await handleTicketsPage();
-  await handleFundsPage();
-  await handleAccountPage();
+  
+  // Basic initializations
+  try { await handleRegisterPage(); } catch {}
+  try { await handleLoginPage(); } catch {}
+  try { await handleResetPasswordPage(); } catch {}
+  try { await handleForgotPage(); } catch {}
+  try { await handleAdminPage(); } catch {}
+  try { await handlePanelUser(); } catch {}
+  try { await handleOrderPage(); } catch {}
+  try { await handleTicketsPage(); } catch {}
+  try { await handleFundsPage(); } catch {}
+  try { await handleAccountPage(); } catch {}
+  try { await handleTabSwitching(); } catch {}
+  
+  handleDemoBanner();
   handleLogout();
-  await updateSupportBadge();
-  await loadPopularCategories();
-  await handleReferralPanel();
+  
+  try { await updateSupportBadge(); } catch {}
+  try { await loadPopularCategories(); } catch {}
 });
-
-
-
-
-
