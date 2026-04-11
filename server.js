@@ -52,10 +52,7 @@ const RESET_LINK_TTL_MS = Number(process.env.RESET_LINK_TTL_MINUTES || 5) * 60 *
 const RESET_REQUEST_COOLDOWN_MS = Number(process.env.RESET_REQUEST_COOLDOWN_SECONDS || 60) * 1000;
 const RESET_REQUEST_LIMIT = Number(process.env.RESET_REQUEST_LIMIT_PER_HOUR || 5);
 
-const REFERRAL_COMMISSION_RATE = Number(process.env.REFERRAL_COMMISSION_RATE || 0.1);
-const REFERRAL_MIN_PAYOUT = Number(process.env.REFERRAL_MIN_PAYOUT || 500);
-const REFERRAL_PAYOUT_DAY = String(process.env.REFERRAL_PAYOUT_DAY || "Sunday");
-const REFERRAL_PAYOUT_TIMEZONE = String(process.env.REFERRAL_PAYOUT_TIMEZONE || "Asia/Kolkata");
+
 
 const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || "dreamhubsadmin").trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ChangeThisAdminPassword123!";
@@ -325,11 +322,7 @@ function createInitialDb() {
   return {
     users: [], sessions: [], adminSessions: [], orders: [], tickets: [], fundRequests: [],
     passwordResetTokens: [], emailVerificationTokens: [], loginFailures: [], resetRequests: [],
-    services: [], providers: [], popularCategories: [], referralVisits: [], referralCommissions: [],
-    referralPayouts: [], referralSettings: {
-      commissionRate: REFERRAL_COMMISSION_RATE, minPayout: REFERRAL_MIN_PAYOUT, payoutDay: REFERRAL_PAYOUT_DAY,
-      payoutTimezone: REFERRAL_PAYOUT_TIMEZONE, payoutMode: "weekly", firstClick: true, lifetime: true, selfReferralAllowed: false
-    },
+    services: [], providers: [], popularCategories: [],
     settings: { activeTheme: "classic" }
   };
 }
@@ -365,18 +358,10 @@ function normalizeDb(db) {
     users: (db.users || []).map(u => ({
       ...u,
       balance: Number(u.balance || 0),
-      isEmailVerified: Boolean(u.isEmailVerified),
-      referralCode: String(u.referralCode || "").toUpperCase(),
-      referredByUserId: u.referredByUserId || null
+      isEmailVerified: true
     })),
-    emailVerificationTokens: db.emailVerificationTokens || [],
-    referralSettings: {
-      commissionRate: Number(db.referralSettings?.commissionRate ?? REFERRAL_COMMISSION_RATE),
-      minPayout: Number(db.referralSettings?.minPayout ?? REFERRAL_MIN_PAYOUT),
-      payoutDay: String(db.referralSettings?.payoutDay || REFERRAL_PAYOUT_DAY),
-      payoutTimezone: String(db.referralSettings?.payoutTimezone || REFERRAL_PAYOUT_TIMEZONE),
-      payoutMode: "weekly", firstClick: true, lifetime: true, selfReferralAllowed: false
-    }
+    services: db.services || [],
+    popularCategories: db.popularCategories || []
   };
 }
 
@@ -413,13 +398,14 @@ function verifyPassword(pass, stored) {
 }
 
 function sanitizeUser(u) {
-  return { id: u.id, name: u.name, username: u.username, email: u.email, balance: u.balance, isEmailVerified: !!u.isEmailVerified, referralCode: u.referralCode || "", referredByUserId: u.referredByUserId || null, provider: u.provider, createdAt: u.createdAt };
+  return { id: u.id, name: u.name, username: u.username, email: u.email, balance: u.balance, isEmailVerified: true, provider: u.provider, createdAt: u.createdAt };
 }
 function sanitizeAdmin() { return { username: ADMIN_USERNAME, email: ADMIN_EMAIL, role: "admin" }; }
 
 function getToken(req) {
-  const auth = req.headers.authorization || "";
-  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : null;
+  const auth = req.headers["authorization"] || "";
+  if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
+  return req.headers["x-admin-token"] || null;
 }
 
 function getClientIp(req) {
@@ -433,7 +419,6 @@ function cleanupDb(db) {
   db.sessions = (db.sessions || []).filter(s => now - new Date(s.createdAt).getTime() <= SESSION_TTL_MS);
   db.adminSessions = (db.adminSessions || []).filter(s => now - new Date(s.createdAt).getTime() <= SESSION_TTL_MS);
   db.passwordResetTokens = (db.passwordResetTokens || []).filter(t => !t.usedAt && new Date(t.expiresAt).getTime() > now);
-  db.emailVerificationTokens = (db.emailVerificationTokens || []).filter(t => !t.usedAt && (now - new Date(t.createdAt).getTime()) < 24 * 60 * 60 * 1000);
 }
 
 async function requireUser(req) {
@@ -508,56 +493,7 @@ function withUserStats(db, user) {
   return { ...sanitizeUser(user), totalSpend: Number(spend.toFixed(2)), totalFundsAdded: Number(funds.toFixed(2)), totalOrders: orders.length, completedOrders: orders.filter(o => o.status === "Completed").length };
 }
 
-function ensureUserReferralCode(db, user) {
-  if (!user.referralCode) {
-    const base = String(user.username || "DH").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 6) || "DH";
-    let code;
-    do { code = `${base}${Math.floor(1000 + Math.random() * 9000)}`; } while (db.users.some(u => u.referralCode === code));
-    user.referralCode = code;
-  }
-}
 
-function updateReferralForOrder(db, order, prev, next) {
-  const user = db.users.find(u => u.id === order.userId);
-  if (!user || !user.referredByUserId || !user.isEmailVerified) return;
-  const ref = db.users.find(u => u.id === user.referredByUserId);
-  if (!ref) return;
-  const settings = db.referralSettings;
-  const existing = db.referralCommissions.find(c => c.orderId === order.id);
-
-  if (next === "Completed" && prev !== "Completed" && !existing) {
-    const isFraud = ref.id === user.id || (user.signupIp && ref.signupIp && user.signupIp === ref.signupIp);
-    db.referralCommissions.push({
-      id: generateId("refc"), referrerUserId: ref.id, referredUserId: user.id, orderId: order.id,
-      amount: Number((Number(order.charge || 0) * (settings.commissionRate || 0.1)).toFixed(2)),
-      status: isFraud ? "Blocked" : "Approved", createdAt: nowIso()
-    });
-  } else if (["Cancelled", "Refunded", "Failed"].includes(next) && existing && existing.status === "Approved") {
-    existing.status = "Reversed";
-  }
-}
-
-function buildReferralStatsForUser(db, userId) {
-  const visits = db.referralVisits.filter(v => v.referrerUserId === userId);
-  const registrations = db.users.filter(u => u.referredByUserId === userId && u.isEmailVerified);
-  const commissions = db.referralCommissions.filter(c => c.referrerUserId === userId);
-  const approved = commissions.filter(c => c.status === "Approved").reduce((s, c) => s + c.amount, 0);
-  const paid = commissions.filter(c => c.status === "Paid").reduce((s, c) => s + c.amount, 0);
-  return {
-    totals: { visits: visits.length, registrations: registrations.length, approvedEarnings: Number(approved.toFixed(2)), paidEarnings: Number(paid.toFixed(2)), lifetimeEarnings: Number((approved + paid).toFixed(2)) },
-    commissions
-  };
-}
-
-async function dispatchVerificationEmail(email, link) {
-  if (!mailTransport) return console.log("[Verify Fallback]", email, link);
-  try {
-    await mailTransport.sendMail({
-      from: SMTP_FROM, to: email, subject: "Verify your Email - DreamHubs",
-      html: `<p>Please click the link below to verify your email and unlock referrals:</p><p><a href="${link}">${link}</a></p>`
-    });
-  } catch (e) { console.error("[SMTP] Error:", e.message); }
-}
 
 async function callProvider(prov, action, params = {}) {
   const url = new URL(prov.url);
@@ -594,17 +530,8 @@ async function handleApi(req, res, url) {
     if (err) return send(res, 400, { error: err });
     if (db.users.some(u => u.email === email)) return send(res, 409, { error: "Email exists." });
 
-    const user = { id: generateId("usr"), name: body.name, username: deriveUsername(body.username || body.name, db.users), email, passwordHash: hashPassword(body.password), balance: 0, isEmailVerified: false, signupIp: getClientIp(req), provider: "email", createdAt: nowIso() };
-    const refCode = String(body.referralCode || "").trim().toUpperCase();
-    const referrer = db.users.find(u => u.referralCode === refCode);
-    if (referrer) user.referredByUserId = referrer.id;
-
-    ensureUserReferralCode(db, user);
+    const user = { id: generateId("usr"), name: body.name, username: deriveUsername(body.username || body.name, db.users), email, passwordHash: hashPassword(body.password), balance: 0, isEmailVerified: true, signupIp: getClientIp(req), provider: "email", createdAt: nowIso() };
     db.users.push(user);
-
-    const token = generateToken(32);
-    db.emailVerificationTokens.push({ token, userId: user.id, createdAt: nowIso() });
-    await dispatchVerificationEmail(email, `${APP_BASE_URL}/verify-email.html?token=${token}`);
 
     const session = createSession(db, user.id);
     await writeDb(db);
@@ -632,34 +559,7 @@ async function handleApi(req, res, url) {
     return send(res, 200, { token, user: withUserStats(db, user) });
   }
 
-  if (req.method === "GET" && url.pathname === "/api/auth/verify-email") {
-    const token = url.searchParams.get("token");
-    if (!token) return send(res, 400, { error: "Token required." });
-    const db = await readDb();
-    const tEntry = db.emailVerificationTokens.find(t => t.token === token && !t.usedAt);
-    if (!tEntry) return send(res, 400, { error: "Invalid or expired token." });
-    const user = db.users.find(u => u.id === tEntry.userId);
-    if (user) {
-      user.isEmailVerified = true;
-      tEntry.usedAt = nowIso();
-      await writeDb(db);
-      return send(res, 200, { message: "Verified!" });
-    }
-    return send(res, 404, { error: "User not found." });
-  }
 
-  if (req.method === "POST" && url.pathname === "/api/auth/resend-verification") {
-    const auth = await requireUser(req);
-    if (!auth) return send(res, 401, { error: "Unauthorized" });
-    if (auth.user.isEmailVerified) return send(res, 400, { error: "Already verified." });
-
-    const db = auth.db;
-    const token = generateToken(32);
-    db.emailVerificationTokens.push({ token, userId: auth.user.id, createdAt: nowIso() });
-    await dispatchVerificationEmail(auth.user.email, `${APP_BASE_URL}/verify-email.html?token=${token}`);
-    await writeDb(db);
-    return send(res, 200, { message: "Verification email sent!" });
-  }
 
   if (req.method === "GET" && url.pathname === "/api/auth/google-config") {
     if (!GOOGLE_CLIENT_ID) {
@@ -684,7 +584,6 @@ async function handleApi(req, res, url) {
       let user = db.users.find(u => u.email === email);
       if (!user) {
         user = { id: generateId("usr"), name: payload.name, username: deriveUsername(email, db.users), email, balance: 0, isEmailVerified: true, provider: "google", createdAt: nowIso() };
-        ensureUserReferralCode(db, user);
         db.users.push(user);
       } else { user.isEmailVerified = true; }
       const token = createSession(db, user.id);
@@ -718,6 +617,15 @@ async function handleApi(req, res, url) {
   if (url.pathname === "/api/services") {
     const db = await readDb();
     return send(res, 200, { services: db.services || [] });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/popular-categories") {
+    const db = await readDb();
+    const allCats = [...new Set((db.services || []).map(s => s.category))];
+    return send(res, 200, { 
+      popularCategories: db.popularCategories || [],
+      allCategories: allCats
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
@@ -761,25 +669,16 @@ async function handleApi(req, res, url) {
     return send(res, 201, { order, balance: auth.user.balance });
   }
 
-  if (url.pathname === "/api/referrals/me") {
+  if (req.method === "GET" && url.pathname === "/api/orders") {
     const auth = await requireUser(req);
     if (!auth) return send(res, 401, { error: "Unauthorized" });
-    if (!auth.user.isEmailVerified) return send(res, 403, { error: "Verify email to access referrals." });
-    ensureUserReferralCode(auth.db, auth.user);
-    const stats = buildReferralStatsForUser(auth.db, auth.user.id);
-    return send(res, 200, { referralCode: auth.user.referralCode, referralLink: `${APP_BASE_URL}/register.html?ref=${auth.user.referralCode}`, stats: stats.totals, commissions: stats.commissions, payouts: auth.db.referralPayouts.filter(p => p.userId === auth.user.id) });
+    const orders = auth.db.orders.filter(o => o.userId === auth.user.id);
+    return send(res, 200, { orders });
   }
 
-  if (req.method === "POST" && url.pathname === "/api/referral/visit") {
-    const body = await parseBody(req);
-    const db = await readDb();
-    const referrer = db.users.find(u => u.referralCode === String(body.code || "").toUpperCase());
-    if (referrer) {
-      db.referralVisits.push({ id: generateId("vis"), referrerUserId: referrer.id, ip: getClientIp(req), createdAt: nowIso() });
-      await writeDb(db);
-    }
-    return send(res, 200, { message: "Tracked." });
-  }
+
+
+
 
   if (req.method === "POST" && url.pathname === "/api/auth/logout") {
     const token = getToken(req);
@@ -846,15 +745,7 @@ async function handleApi(req, res, url) {
       const providers = auth.db.providers || [];
       const services = auth.db.services || [];
       
-      const commissions = auth.db.referralCommissions || [];
-      const payouts = auth.db.referralPayouts || [];
-      const referralOverview = {
-        totalCommissions: commissions.filter(c => c.status === "Approved" || c.status === "Paid").reduce((s, c) => s + c.amount, 0),
-        pendingCommissions: commissions.filter(c => c.status === "Approved").reduce((s, c) => s + c.amount, 0),
-        totalPayouts: payouts.reduce((s, p) => s + p.amount, 0)
-      };
-
-      return send(res, 200, { admin: auth.admin, stats, orders, tickets, users, fundRequests, providers, services, referralOverview });
+      return send(res, 200, { admin: auth.admin, stats, orders, tickets, users, fundRequests, providers, services });
     }
 
     if (url.pathname === "/api/admin/stats") return send(res, 200, buildAdminStats(auth.db));
@@ -1037,10 +928,7 @@ async function handleApi(req, res, url) {
       return send(res, 200, { message: "Theme updated." });
     }
 
-    if (req.method === "POST" && url.pathname === "/api/admin/referrals/payouts/process") {
-      // Mock payout processing
-      return send(res, 200, { message: "Weekly payouts processed successfully!" });
-    }
+
 
     if (req.method === "POST" && url.pathname === "/api/admin/orders/sync-status") {
       const pending = auth.db.orders.filter(o => o.externalOrderId && !["Completed", "Cancelled", "Refunded", "Failed"].includes(o.status));
@@ -1074,7 +962,6 @@ async function handleApi(req, res, url) {
               order.startCount = s.start_count;
               
               if (oldStatus !== order.status) {
-                updateReferralForOrder(auth.db, order, oldStatus, order.status);
                 syncedCount++;
               }
             }
