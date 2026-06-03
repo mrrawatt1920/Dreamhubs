@@ -1162,6 +1162,49 @@ button.filter-chip {
   margin-bottom: 10px;
 }
 
+.category-suggestions {
+  display: grid;
+  gap: 6px;
+  margin: -4px 0 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #324566;
+  border-radius: 8px;
+  background: #17243b;
+  padding: 8px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+}
+
+.category-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: #22314c;
+  color: #eef4ff;
+  cursor: pointer;
+  padding: 9px 11px;
+  text-align: left;
+}
+
+.category-suggestion:hover {
+  border-color: var(--accent);
+  background: #293b5c;
+}
+
+.category-suggestion small {
+  color: #9fb4d5;
+  white-space: nowrap;
+}
+
+.category-suggestion.empty {
+  cursor: default;
+  opacity: 0.75;
+}
+
 .label-lite {
   margin: 10px 0 6px;
   display: block;

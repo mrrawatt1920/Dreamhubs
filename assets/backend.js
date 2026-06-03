@@ -1289,6 +1289,8 @@ async function handleOrderPage() {
     const rateText = document.querySelector("[data-order-rate]");
     const descText = document.querySelector("[data-order-desc] span");
     const quantityInput = document.querySelector("[name='quantity']");
+    const searchInput = document.querySelector("[data-category-search]");
+    const categorySuggestions = document.querySelector("[data-category-suggestions]");
     const submitBtn = form.querySelector(".order-submit");
     const submitText = submitBtn ? submitBtn.querySelector("small") : null;
     let servicesData = [];
@@ -1298,24 +1300,84 @@ async function handleOrderPage() {
     const urlApp = String(new URLSearchParams(window.location.search).get("app") || "").trim().toLowerCase();
     if (urlApp) selectedAppFilter = urlApp;
 
-    function isServiceAllowedByApp(service) {
+    function normalizeText(value) {
+      return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    }
+
+    function categoryMatchesApp(category) {
       if (selectedAppFilter === "all") return true;
-      const haystack = `${service.category} ${service.name}`.toLowerCase();
-      return haystack.includes(selectedAppFilter);
+      const text = normalizeText(category);
+      const aliases = {
+        instagram: ["instagram", "insta", "ig"],
+        youtube: ["youtube", "you tube", "yt"],
+        telegram: ["telegram", "tg"],
+        facebook: ["facebook", "fb"]
+      };
+      return (aliases[selectedAppFilter] || [selectedAppFilter]).some((word) => text.includes(word));
+    }
+
+    function isServiceAllowedByApp(service) {
+      return categoryMatchesApp(service.category);
+    }
+
+    function getFilteredCategories(query = "") {
+      const search = normalizeText(query);
+      return [...new Set(servicesData.map((s) => s.category))]
+        .filter(categoryMatchesApp)
+        .filter((category) => !search || normalizeText(category).includes(search))
+        .sort((a, b) => a.localeCompare(b));
+    }
+
+    function fillServicesForCategory(category) {
+      if (!serviceSelect) return;
+      const matching = servicesData.filter((s) => s.category === category && isServiceAllowedByApp(s));
+      serviceSelect.innerHTML = `<option value="">Select Service</option>` +
+        matching.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("");
+      updateServiceInfo();
+    }
+
+    function chooseCategory(category) {
+      if (!categorySelect) return;
+      categorySelect.value = category;
+      if (searchInput) searchInput.value = category;
+      if (categorySuggestions) categorySuggestions.setAttribute("hidden", "");
+      fillServicesForCategory(category);
+    }
+
+    function renderCategorySuggestions(query = "") {
+      if (!categorySuggestions) return;
+      const categories = getFilteredCategories(query);
+      if (!query && selectedAppFilter === "all") {
+        categorySuggestions.setAttribute("hidden", "");
+        return;
+      }
+      if (!categories.length) {
+        categorySuggestions.innerHTML = `<button type="button" class="category-suggestion empty" disabled>No matching categories</button>`;
+        categorySuggestions.removeAttribute("hidden");
+        return;
+      }
+      categorySuggestions.innerHTML = categories.slice(0, 12).map((category) => `
+        <button type="button" class="category-suggestion" data-category-choice="${escapeHtml(category)}">
+          <span>${escapeHtml(category)}</span>
+          <small>${servicesData.filter((s) => s.category === category).length} services</small>
+        </button>
+      `).join("");
+      categorySuggestions.removeAttribute("hidden");
     }
 
     function renderCategories() {
       if (!categorySelect) return;
-      const allCategories = [...new Set(servicesData.filter(isServiceAllowedByApp).map((s) => s.category))];
+      const categories = getFilteredCategories(searchInput ? searchInput.value : "");
       categorySelect.innerHTML = `<option value="">Select Category</option>` +
-        allCategories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
-      if (!allCategories.length) {
-        categorySelect.innerHTML = `<option value="">No categories for selected app</option>`;
+        categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+      if (!categories.length) {
+        categorySelect.innerHTML = `<option value="">No matching categories</option>`;
       }
       if (serviceSelect) {
-        serviceSelect.innerHTML = `<option value="">Select Service</option>`;
+        serviceSelect.innerHTML = `<option value="">Select a category first</option>`;
       }
       updateServiceInfo();
+      renderCategorySuggestions(searchInput ? searchInput.value : "");
     }
 
     function highlightAppFilter() {
@@ -1328,10 +1390,25 @@ async function handleOrderPage() {
     appChips.forEach((chip) => {
       chip.addEventListener("click", () => {
         selectedAppFilter = String(chip.dataset.appFilter || "all").toLowerCase();
+        if (searchInput) searchInput.value = "";
         highlightAppFilter();
         renderCategories();
+        renderCategorySuggestions(selectedAppFilter === "all" ? "" : selectedAppFilter);
       });
     });
+
+    if (searchInput) {
+      searchInput.addEventListener("input", renderCategories);
+      searchInput.addEventListener("focus", () => renderCategorySuggestions(searchInput.value));
+    }
+
+    if (categorySuggestions) {
+      categorySuggestions.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-category-choice]");
+        if (!button) return;
+        chooseCategory(button.dataset.categoryChoice || "");
+      });
+    }
 
     try {
       const { services } = await API.request("/api/services");
@@ -1379,10 +1456,9 @@ async function handleOrderPage() {
     if (categorySelect && serviceSelect) {
       categorySelect.addEventListener("change", () => {
         const cat = categorySelect.value;
-        const matching = servicesData.filter((s) => s.category === cat && isServiceAllowedByApp(s));
-        serviceSelect.innerHTML = `<option value="">Select Service</option>` + 
-          matching.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("");
-        updateServiceInfo();
+        if (searchInput) searchInput.value = cat;
+        if (categorySuggestions) categorySuggestions.setAttribute("hidden", "");
+        fillServicesForCategory(cat);
       });
 
       serviceSelect.addEventListener("change", updateServiceInfo);
