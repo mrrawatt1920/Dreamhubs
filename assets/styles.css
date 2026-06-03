@@ -23,6 +23,10 @@
   --transition-slow: 0.5s var(--ease);
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html[data-theme="dark"] {
   color-scheme: dark;
   --bg: #17181c;

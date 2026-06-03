@@ -300,14 +300,14 @@ function setStatus(element, message, tone = "") {
 }
 
 window.togglePassword = function(btn) {
-  const input = btn.previousElementSibling;
-  if (input.type === "password") {
-    input.type = "text";
-    btn.textContent = "Hide";
-  } else {
-    input.type = "password";
-    btn.textContent = "Show";
-  }
+  const field = btn.closest(".password-field");
+  const input = field ? field.querySelector("input") : btn.previousElementSibling;
+  if (!input) return;
+
+  const isHidden = input.type === "password";
+  input.type = isHidden ? "text" : "password";
+  btn.textContent = isHidden ? "Hide" : "Show";
+  btn.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
 };
 
 async function waitForGoogleIdentity(maxAttempts = 20, delayMs = 300) {
@@ -1116,18 +1116,8 @@ async function handleAdminPage() {
     }
   };
 
-  if (API.adminToken) {
-    await window.refreshAdminDashboard();
-    await loadProviders();
-    window.setInterval(async () => {
-      try {
-        await window.refreshAdminDashboard();
-      } catch {
-      }
-    }, 20000);
-  } else {
-    showGate();
-  }
+  API.clearAdminSession();
+  showGate();
 }
 
 async function ensureAuth() {
@@ -1887,6 +1877,11 @@ async function updateSupportBadge() {
       } else {
         badge.setAttribute("hidden", "");
       }
+    });
+  } catch {
+  }
+}
+
 window.adminSavePopularCategories = async function() {
   const popularBox = document.getElementById("popular-categories-checkboxes");
   const statusEl = document.getElementById("popular-categories-status");
