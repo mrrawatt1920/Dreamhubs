@@ -691,7 +691,7 @@ async function handleAdminPage() {
               <li style="padding: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: start;">
                   <div>
-                    <strong style="color: ${statusColor};">#${ticket.id} â€“ ${escapeHtml(ticket.status)}</strong><br>
+                    <strong style="color: ${statusColor};">#${ticket.id} - ${escapeHtml(ticket.status)}</strong><br>
                     <strong>${escapeHtml(ticket.subject)}</strong>
                     <p style="margin: 5px 0; font-size: 0.9rem; color: var(--muted);">${escapeHtml(ticket.message)}</p>
                     ${ticket.replies ? ticket.replies.map(r => `
@@ -765,9 +765,9 @@ async function handleAdminPage() {
               <li style="padding: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: start;">
                   <div>
-                    <strong>Rs ${escapeHtml(item.amount)} â€¢ <span style="color: ${isPending ? '#f39c12' : (item.status === 'Approved' ? '#27ae60' : '#e74c3c')}">${escapeHtml(item.status)}</span></strong><br>
+                    <strong>Rs ${escapeHtml(item.amount)} - <span style="color: ${isPending ? '#f39c12' : (item.status === 'Approved' ? '#27ae60' : '#e74c3c')}">${escapeHtml(item.status)}</span></strong><br>
                     <small style="display: block; margin-top: 4px; color: var(--text-gray);">User: ${escapeHtml(userLabel)}</small>
-                    <small style="display: block; color: var(--text-gray);">Method: ${escapeHtml(item.method)} â€¢ TRX: <strong>${escapeHtml(item.reference || 'N/A')}</strong></small>
+                    <small style="display: block; color: var(--text-gray);">Method: ${escapeHtml(item.method)} - TRX: <strong>${escapeHtml(item.reference || 'N/A')}</strong></small>
                     <small style="display: block; color: var(--text-gray); font-size: 0.75rem;">${formatDate(item.createdAt)}</small>
                   </div>
                   ${isPending ? `
@@ -807,7 +807,7 @@ async function handleAdminPage() {
                   </div>
                   ${t.id === active ? `
                     <div style="position: absolute; top: -10px; right: -10px; background: var(--accent); color: white; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                      âœ“
+                      OK
                     </div>
                   ` : ''}
                 </div>
@@ -909,7 +909,7 @@ async function handleAdminPage() {
         if (newCategory === null) return;
         const newName = prompt("Enter new service name:", selected.name);
         if (newName === null) return;
-        const newRate = prompt("Enter new rate per 1000 (â‚¹):", selected.ratePer1000);
+        const newRate = prompt("Enter new rate per 1000 (\u20b9):", selected.ratePer1000);
         if (newRate === null) return;
 
         try {
@@ -956,8 +956,7 @@ async function handleAdminPage() {
           location.reload();
         } catch (error) { alert(error.message); }
       };
-
-      // â”€â”€ Popular Categories Checkboxes â”€â”€
+      // Popular Categories Checkboxes
       const popularBox = document.getElementById("popular-categories-checkboxes");
       if (popularBox) {
         try {
@@ -1021,7 +1020,7 @@ async function handleAdminPage() {
         <tr>
           <td><strong>${escapeHtml(p.name)}</strong></td>
           <td style="font-size: 0.8rem; color: var(--text-gray);">${escapeHtml(p.url)}</td>
-          <td style="text-align: center; font-weight: bold; color: var(--blue);">1$ = â‚¹${p.exchangeRate || 1}</td>
+          <td style="text-align: center; font-weight: bold; color: var(--blue);">1$ = \u20b9${p.exchangeRate || 1}</td>
           <td style="text-align: center; font-weight: bold; color: var(--green);">${p.margin}%</td>
           <td>
             <div style="display: flex; gap: 5px; justify-content: center;">
@@ -1185,8 +1184,8 @@ async function loadPopularCategories() {
           </div>
           <div class="recent-order-body">
             <div class="order-row"><span>Services:</span><span class="value">${serviceCount} available</span></div>
-            <div class="order-row"><span>Starting from:</span><span class="value">â‚¹${minRate > 0 ? minRate.toFixed(2) : "â€”"} / 1000</span></div>
-            <div class="order-row"><span>Action:</span><span class="value" style="color:var(--accent);">Click to order â†’</span></div>
+            <div class="order-row"><span>Starting from:</span><span class="value">\u20b9${minRate > 0 ? minRate.toFixed(2) : "-"} / 1000</span></div>
+            <div class="order-row"><span>Action:</span><span class="value" style="color:var(--accent);">Click to order</span></div>
           </div>
         </article>
       `;
@@ -1348,7 +1347,7 @@ async function handleOrderPage() {
       if (selected) {
         if (minText) minText.textContent = selected.min;
         if (maxText) maxText.textContent = selected.max;
-        if (rateText) rateText.textContent = `â‚¹${Number(selected.ratePer1000).toFixed(2)}`;
+        if (rateText) rateText.textContent = `\u20b9${Number(selected.ratePer1000).toFixed(2)}`;
         if (descText) descText.textContent = selected.desc || "No additional details available.";
         if (quantityInput) {
           quantityInput.min = selected.min;
@@ -1371,7 +1370,7 @@ async function handleOrderPage() {
       const q = quantityInput ? Number(quantityInput.value) : 1000;
       if (selected && submitText) {
         const total = (q / 1000) * selected.ratePer1000;
-        submitText.textContent = `TOTAL AMOUNT: â‚¹${total.toFixed(2)}`;
+        submitText.textContent = `TOTAL AMOUNT: \u20b9${total.toFixed(2)}`;
       } else if (submitText) {
         submitText.textContent = `TOTAL AMOUNT`;
       }
@@ -1419,7 +1418,7 @@ async function handleOrderPage() {
           })
         });
 
-        // âœ… Instantly update balance on screen after deduction
+        // Success: Instantly update balance on screen after deduction
         if (result.balance !== undefined) {
           setText("[data-balance]", `Rs ${Number(result.balance).toFixed(2)}`);
           // Also update cached user so other pages are consistent
@@ -1436,11 +1435,11 @@ async function handleOrderPage() {
         form.querySelector("[name='target']").value = "";
 
         const statusMsg = result.order?.providerOrderId
-          ? `âœ… Order placed & sent to provider!\nProvider Order ID: ${result.order.providerOrderId}\nCharged: â‚¹${result.order.charge}`
-          : `âœ… Order placed successfully!\nOrder ID: ${result.order?.id}\nCharged: â‚¹${result.order?.charge}`;
+          ? `Success: Order placed & sent to provider!\nProvider Order ID: ${result.order.providerOrderId}\nCharged: \u20b9${result.order.charge}`
+          : `Success: Order placed successfully!\nOrder ID: ${result.order?.id}\nCharged: \u20b9${result.order?.charge}`;
         alert(statusMsg);
       } catch (error) {
-        alert("âŒ " + error.message);
+        alert("Error: " + error.message);
       } finally {
         submitRealBtn.disabled = false;
       }
@@ -1552,7 +1551,7 @@ async function handleFundsPage() {
     list.innerHTML = data.fundRequests.map((item) => `
       <li>
         <strong>Rs ${item.amount} ${item.status.toLowerCase()}</strong>
-        <span>${item.method} â€¢ ${formatDate(item.createdAt)}</span>
+        <span>${item.method} - ${formatDate(item.createdAt)}</span>
       </li>
     `).join("");
   }
@@ -1633,8 +1632,8 @@ async function handleAccountPage() {
   // Fill session info in logout card
   const sessionUsername = document.querySelector("[data-session-username]");
   const sessionEmail = document.querySelector("[data-session-email]");
-  if (sessionUsername) sessionUsername.textContent = "@" + (user.username || "â€”");
-  if (sessionEmail) sessionEmail.textContent = user.email || "â€”";
+  if (sessionUsername) sessionUsername.textContent = "@" + (user.username || "-");
+  if (sessionEmail) sessionEmail.textContent = user.email || "-";
 
   const statusEl = document.querySelector("[data-account-status]");
 
@@ -1655,11 +1654,11 @@ async function handleAccountPage() {
       API.setSession(data);
 
       // Update session info card with new email
-      if (sessionEmail && data.user) sessionEmail.textContent = data.user.email || "â€”";
+      if (sessionEmail && data.user) sessionEmail.textContent = data.user.email || "-";
 
-      if (statusEl) setStatus(statusEl, "âœ… Profile updated successfully!", "success");
+      if (statusEl) setStatus(statusEl, "Success: Profile updated successfully!", "success");
     } catch (error) {
-      if (statusEl) setStatus(statusEl, "âŒ " + error.message, "error");
+      if (statusEl) setStatus(statusEl, "Error: " + error.message, "error");
     } finally {
       submitBtn.disabled = false;
     }
@@ -1698,9 +1697,9 @@ window.adminSavePopularCategories = async function() {
       admin: true,
       body: JSON.stringify({ categories: checked })
     });
-    if (statusEl) setStatus(statusEl, "âœ… " + res.message, "success");
+    if (statusEl) setStatus(statusEl, "Success: " + res.message, "success");
   } catch (err) {
-    if (statusEl) setStatus(statusEl, "âŒ " + err.message, "error");
+    if (statusEl) setStatus(statusEl, "Error: " + err.message, "error");
   }
 };
 
@@ -1710,7 +1709,7 @@ window.editService = async function(id, currentCategory, currentName, currentRat
   if (newCategory === null) return;
   const newName = prompt("Enter new service name:", currentName);
   if (newName === null) return;
-  const newRate = prompt("Enter new rate per 1000 (â‚¹):", currentRate);
+  const newRate = prompt("Enter new rate per 1000 (\u20b9):", currentRate);
   if (newRate === null) return;
 
   try {
@@ -1865,7 +1864,7 @@ async function updateSupportBadge() {
   if (!API.token) return;
   try {
     const data = await API.request("/api/tickets");
-    // Count tickets that are Open or Answered (active â€” not Closed)
+    // Count tickets that are Open or Answered (active - not Closed)
     const activeCount = (data.tickets || []).filter(
       t => t.status === "Open" || t.status === "Answered" || t.status === "In Progress"
     ).length;
