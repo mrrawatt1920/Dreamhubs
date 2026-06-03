@@ -1365,19 +1365,27 @@ async function handleOrderPage() {
       categorySuggestions.removeAttribute("hidden");
     }
 
-    function renderCategories() {
+    function renderCategories(options = {}) {
       if (!categorySelect) return;
-      const categories = getFilteredCategories(searchInput ? searchInput.value : "");
+      const query = searchInput ? searchInput.value : "";
+      const categories = getFilteredCategories(query);
       categorySelect.innerHTML = `<option value="">Select Category</option>` +
         categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
       if (!categories.length) {
         categorySelect.innerHTML = `<option value="">No matching categories</option>`;
       }
-      if (serviceSelect) {
-        serviceSelect.innerHTML = `<option value="">Select a category first</option>`;
+
+      if (options.autoPickFirst && categories.length) {
+        categorySelect.value = categories[0];
+        fillServicesForCategory(categories[0]);
+      } else {
+        if (serviceSelect) {
+          serviceSelect.innerHTML = `<option value="">Select a category first</option>`;
+        }
+        updateServiceInfo();
       }
-      updateServiceInfo();
-      renderCategorySuggestions(searchInput ? searchInput.value : "");
+
+      renderCategorySuggestions(query);
     }
 
     function highlightAppFilter() {
@@ -1398,8 +1406,16 @@ async function handleOrderPage() {
     });
 
     if (searchInput) {
-      searchInput.addEventListener("input", renderCategories);
+      searchInput.addEventListener("input", () => renderCategories({ autoPickFirst: true }));
       searchInput.addEventListener("focus", () => renderCategorySuggestions(searchInput.value));
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        const first = getFilteredCategories(searchInput.value)[0];
+        if (first) {
+          event.preventDefault();
+          chooseCategory(first);
+        }
+      });
     }
 
     if (categorySuggestions) {
