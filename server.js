@@ -723,13 +723,21 @@ async function handleApi(req, res, url) {
     const user = String(body.identifier || body.username || "").trim().toLowerCase();
     const pass = String(body.password || "");
 
-    if (user === ADMIN_USERNAME && pass === ADMIN_PASSWORD) {
-      const db = await readDb();
-      const token = createAdminSession(db);
-      await writeDb(db);
-      return send(res, 200, { token, admin: sanitizeAdmin() });
+    // Better error messages - tell exactly what's wrong
+    if (!user) return send(res, 400, { error: "Username field is empty. Please enter admin username." });
+    if (!pass) return send(res, 400, { error: "Password field is empty. Please enter admin password." });
+
+    if (user !== ADMIN_USERNAME) {
+      return send(res, 401, { error: "❌ Wrong username. Check your admin username and try again." });
     }
-    return send(res, 401, { error: "Invalid admin credentials." });
+    if (pass !== ADMIN_PASSWORD) {
+      return send(res, 401, { error: "❌ Wrong password. Check your admin password and try again." });
+    }
+
+    const db = await readDb();
+    const token = createAdminSession(db);
+    await writeDb(db);
+    return send(res, 200, { token, admin: sanitizeAdmin() });
   }
 
   if (url.pathname.startsWith("/api/admin")) {
@@ -985,17 +993,38 @@ async function handleApi(req, res, url) {
   return send(res, 404, { error: "Not found." });
 }
 
+// Paths that should NEVER be served to clients (security)
+const BLOCKED_PREFIXES = ["/data", "/.env", "/node_modules", "/.git"];
+
 async function serverHandler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   await ensureDb();
   if (url.pathname.startsWith("/api/")) return handleApi(req, res, url);
-  
+
+  // Block access to sensitive directories
+  const cleanPath = url.pathname.toLowerCase();
+  if (BLOCKED_PREFIXES.some(b => cleanPath === b || cleanPath.startsWith(b + "/"))) {
+    return sendText(res, 403, "Access denied.");
+  }
+
   let p = path.join(ROOT, url.pathname === "/" ? "index.html" : url.pathname);
+  // Prevent path traversal attacks (e.g. /../.env)
+  if (!p.startsWith(ROOT)) return sendText(res, 403, "Access denied.");
+
   try {
     const s = await fsp.stat(p);
-    const f = s.isDirectory() ? path.join(p, "index.html") : p;
-    res.writeHead(200, { "Content-Type": MIME_TYPES[path.extname(f)] || "text/plain" });
-    fs.createReadStream(f).pipe(res);
+    // Never serve directories directly (no directory listing)
+    if (s.isDirectory()) {
+      const indexFile = path.join(p, "index.html");
+      try {
+        await fsp.stat(indexFile);
+        res.writeHead(200, { "Content-Type": MIME_TYPES[".html"] });
+        fs.createReadStream(indexFile).pipe(res);
+      } catch { return sendText(res, 403, "Access denied."); }
+    } else {
+      res.writeHead(200, { "Content-Type": MIME_TYPES[path.extname(p)] || "text/plain" });
+      fs.createReadStream(p).pipe(res);
+    }
   } catch (e) { sendText(res, 404, "Not found"); }
 }
 
